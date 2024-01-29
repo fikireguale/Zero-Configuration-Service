@@ -16,6 +16,5 @@ int main() {
         sleep(10);
     }
     rv = zcs_shutdown();
-    zcs_log();
 }
 
