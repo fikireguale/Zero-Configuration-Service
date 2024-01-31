@@ -6,6 +6,12 @@ typedef struct {
     char *value;
 } zcs_attribute_t;
 
+typedef struct {
+    char* name;
+    zcs_attribute_t attr[];
+    int numOfAttr;
+} node;
+
 typedef void (*zcs_cb_f)(char *, char *);
 
 int zcs_init(int type);
