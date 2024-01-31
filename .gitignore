@@ -58,6 +58,7 @@ dkms.conf
 app
 service
 .vscode
+.vs
 
 # End of https://www.toptal.com/developers/gitignore/api/c
 

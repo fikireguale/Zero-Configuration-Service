@@ -1,6 +1,6 @@
 #include "zcs.h"
 
-int zcs_init() {
+int zcs_init(int type) {
     return 0;
 }
 
