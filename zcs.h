@@ -1,6 +1,9 @@
 #ifndef __ZCS_H__
 #define __ZCS_H__
 
+#define ZCS_APP_TYPE       1
+#define ZCS_SERVICE_TYPE   2
+
 typedef struct {
     char *attr_name;
     char *value;
@@ -8,8 +11,8 @@ typedef struct {
 
 typedef struct {
     char* name;
-    zcs_attribute_t attr[];
     int numOfAttr;
+    zcs_attribute_t attr[];
 } node;
 
 typedef void (*zcs_cb_f)(char *, char *);
