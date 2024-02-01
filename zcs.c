@@ -21,7 +21,10 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
 
     thisService->name = name;
     thisService->numOfAttr = num;
-    memcpy(thisService->attr, attr, num);
+
+    for (int i = 0; i < num; i++) {
+        thisService->attr[i] = attr[i];
+    }
 
     //put node into local library log if not already there, then send NOTIFICATION message to tell other nodes about existence/being UP
     //start HEARTBEAT
