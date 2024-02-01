@@ -3,18 +3,19 @@
 #include <stdio.h>
 #include <string.h>
 
-int type = 0;
+int userType = 0;
 node *thisService;
 
 int zcs_init(int type) {
     //send DISCOVERY message (makes other nodes send a NOTIFICATION message, i.e. share their existence)
+    userType = type;
 
     return 0;
 }
 
 int zcs_start(char *name, zcs_attribute_t attr[], int num) {
     //check for proper initialization of library
-    if (type == 0)
+    if (userType == 0)
         return -1;
     
     thisService = malloc(sizeof(*thisService) + sizeof(zcs_attribute_t) * num);
@@ -25,6 +26,10 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
     for (int i = 0; i < num; i++) {
         thisService->attr[i] = attr[i];
     }
+
+    //test statements to check that node is properly created
+    //printf("service started\n");
+    //printf("%s\n", thisService->attr[num-1].attr_name);
 
     //put node into local library log if not already there, then send NOTIFICATION message to tell other nodes about existence/being UP
     //start HEARTBEAT
@@ -52,6 +57,7 @@ int zcs_shutdown() {
     //check that service was already registered and that it is currently UP. if not fail
 
     //mark service as DOWN in local registry
+    //de allocate node memory
 
     //stop HEARTBEAT
     return 0;
