@@ -14,6 +14,7 @@ void insertEntry(node* entry) {
 	registryEntry* newEntry = malloc(sizeof(registryEntry));
 	newEntry->next = NULL;
 	newEntry->node = entry;
+	newEntry->up = true;
 
 	if (length == 0) {
 		head = newEntry;
@@ -53,6 +54,34 @@ registryEntry* getEntryFromName(char* name) {
 	}
 
 	return NULL;
+}
+
+int setStatusFromIndex(int index, bool status) {
+	if (length == 0 || length <= index || index < 0)
+		return -1;
+
+	registryEntry* entry = head;
+	for (int i = 0; i < index; i++)
+		entry = entry->next;
+
+	entry->up = status;
+	return 0;
+}
+
+int setStatusFromName(char* name, bool status) {
+	if (length == 0)
+		return -1;
+
+	registryEntry* entry = head;
+	for (int i = 0; i < length; i++) {
+		if (strcmp(name, entry->node->name) == 0) {
+			entry->up = status;
+			return 0;
+		}
+		entry = entry->next;
+	}
+
+	return -1;
 }
 
 registryEntry* removeEntryFromIndex(int index) {

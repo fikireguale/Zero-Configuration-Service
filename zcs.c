@@ -61,12 +61,14 @@ int zcs_get_attribs(char *name, zcs_attribute_t attr[], int *num) {
     // if num < node->numOfAttr, return num attributes. otherwise return node->numOfAttr attributes
 
     //get node from registry
-    node* n = getEntryFromName(name)->node;
+    registryEntry* entry = getEntryFromName(name);
+
+    if (entry == NULL)
+        return -1; //error if no service with given name
 
     int i = 0;
-
-    for (; i < n->numOfAttr && i < *num; i++) {
-        attr[i] = n->attr[i];
+    for (; i < entry->node->numOfAttr && i < *num; i++) {
+        attr[i] = entry->node->attr[i];
     }
 
     *num = i;
@@ -79,7 +81,7 @@ int zcs_listen_ad(char *name, zcs_cb_f cback) {
 
 int zcs_shutdown() {
     //check that service was already registered and that it is currently UP. if not fail
-    if (userType == 0 || !up) // || 
+    if (!up) 
         return -1;
 
     // mark service as DOWN in local registry

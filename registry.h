@@ -1,8 +1,10 @@
 #include "zcs.h"
+#include <stdbool.h>
 typedef struct registryEntry registryEntry;
 
 struct registryEntry {
     node* node;
+    bool up;
     registryEntry* next;
 };
 
