@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include "registry.h"
 
 int userType = 0;
 bool up = false;
@@ -35,6 +36,7 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
     //printf("%s\n", thisService->attr[num-1].attr_name);
 
     //put node into local library log, then send NOTIFICATION message to tell other nodes about existence/being UP
+    insertEntry(thisService);
     //start HEARTBEAT
 
     return 0;
@@ -59,7 +61,7 @@ int zcs_get_attribs(char *name, zcs_attribute_t attr[], int *num) {
     // if num < node->numOfAttr, return num attributes. otherwise return node->numOfAttr attributes
 
     //get node from registry
-    node *n;
+    node* n = getEntryFromName(name)->node;
 
     int i = 0;
 
@@ -83,9 +85,8 @@ int zcs_shutdown() {
     // mark service as DOWN in local registry
     // if local registry is a linked list, can just remove the entry locally. other nodes will mark as down due to lack of heartbeat
     // if service comes back, add to end of local registry and start heartbeating again. other nodes will see the service name in their registry and just mark it as up
-
+    removeEntryFromName(thisService->name);
     up = false;
-    free(thisService);
     //stop HEARTBEAT
     return 0;
 }
