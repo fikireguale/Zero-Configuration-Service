@@ -9,32 +9,63 @@
 int userType = 0;
 bool up = false;
 node *thisService;
-char buffer[1000];
-int buffer_index = 0;
+const int BUFFERSIZE = 1000;
+char buffer[BUFFERSIZE];
+int readPt = 0;
+int writePt = 0;
 pthread_mutex_t buffer_mutex;
-// linked list for specific nodes for listen_ad 
+// linked list for specific nodes for zcs_listen_ad 
 int MAX_RETRIES = 3;
+int zcs_init_is_done = 0;
+int zcs_shutdown_ongoing = 0;
 
-void* receive_messages(void* arg, mcast_t *mcastNodeToApp) {
-    int num_bytes_received;
+void* write_buffer(void* arg, mcast_t *mcastNodeToApp) {
+    // Continously listening and writing messages to the buffer (except when read_buffer thread holds lock..)
+    int num_bytes_received = 0;
     char temp_buffer[100];
-    time_t start_time, current_time;
-    time(&start_time);
 
     while (1) {
-        // use global var for termination
-
+        if (zcs_shutdown_ongoing == 1) {
+            // shutdown procedure
+            break;
+        }
         if (multicast_check_receive(mcastNodeToApp)) {
             num_bytes_received = multicast_receive(mcastNodeToApp, temp_buffer, sizeof(temp_buffer));
             if (num_bytes_received > 0) {
                 pthread_mutex_lock(&buffer_mutex);
-                if (buffer_index + num_bytes_received < sizeof(buffer)) {
-                    memcpy(buffer + buffer_index, temp_buffer, num_bytes_received);
-                    buffer_index += num_bytes_received;
+                // Add logic for: while buffer is full wait
+                if (writePt + num_bytes_received < sizeof(buffer)) {
+                    // Write to buffer
+                    memcpy(buffer + writePt, temp_buffer, num_bytes_received);
+                    // Clear buffer
+                    memset(buffer, 0, sizeof(buffer));
+                    writePt = 0;
+                    //writePt += num_bytes_received % BUFFERSIZE; 
                 }
                 pthread_mutex_unlock(&buffer_mutex);
             }
         }
+    }
+    // Add logic for: pthread_exit
+    return NULL;
+}
+
+void* read_buffer(void* arg, mcast_t *mcastAppToNode, mcast_t *mcastNodeToApp) {
+    // when reading the buffer, it's possible to misss a message..
+
+    while (1) {
+        if (zcs_shutdown_ongoing == 1) {
+            // shutdown procedure
+            break;
+        }
+
+        pthread_mutex_lock(&buffer_mutex);
+        // Add logic for: while buffer is empty wait
+        //   wait until something to read
+        // Add conditional statement to check buffer index
+        // Read/Pull data out of buffer
+        pthread_mutex_unlock(&buffer_mutex);
+        
     }
 
     return NULL;
@@ -56,37 +87,30 @@ int zcs_init(int type) {
         return -1;
     }
 
+    pthread_t listen_thread;
+    pthread_mutex_init(&buffer_mutex, NULL);
+
+    // Start listening thread where buffer gets written
+    if (pthread_create(&listen_thread, NULL, write_buffer, NULL) != 0) {
+        perror("Failed to create listening thread");
+        return -1;
+    }
     // App broadcasts DISCOVERY and listens for NOTIFICATIONs to update its local_registry
-    if (userType == 1) {
-        pthread_t listen_thread;
-        pthread_mutex_init(&buffer_mutex, NULL);
-
-        // Start listening thread
-        if (pthread_create(&listen_thread, NULL, receive_messages, NULL) != 0) {
-            perror("Failed to create listening thread");
-            return -1;
-        }
-
+    if (userType == ZCS_APP_TYPE) {
         // Send 1 DISCOVERY msg
         char msg[] = "zcs|01#";
         multicast_send(mcastAppToNode, msg, strlen(msg));
-
-        // Read messages
-        pthread_mutex_lock(&buffer_mutex);
-        if (buffer_index > 0) {
-            printf("Buffer contents: %s\n", buffer);
-            //  update local registry
-            node *node_list = decode_buffer(buffer);
-            // for node in node_list
-            //  insertEntry(node* entry);
-
-            buffer_index = 0; // Reset
-            memset(buffer, 0, sizeof(buffer)); // Clear
-        } else {
-            printf("No nodes responded to %s msg.\r\n", msg);
-        }
-        pthread_mutex_unlock(&buffer_mutex);
+        // wait 1 sec
     }
+    // Read messages using read_buffer() above
+        // + handle all msg types
+                // for app:
+                // printf("Buffer contents: %s\n", buffer);
+                // update local registry
+                // node *node_list = decode_buffer(buffer);
+                // for node in node_list
+                //  insertEntry(node* entry);
+    zcs_init_is_done = 1;
     return 0;
 }
 
