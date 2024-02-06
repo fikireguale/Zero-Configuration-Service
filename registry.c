@@ -21,6 +21,7 @@ void insertEntry(node* entry) {
 	newEntry->next = NULL;
 	newEntry->node = entry;
 	newEntry->up = true;
+	newEntry->timeOfServiceChange = time(NULL);
 
 	if (registryLength == 0) {
 		head = newEntry;
@@ -118,6 +119,7 @@ int setStatusFromIndex(int index, bool status) {
 		entry = entry->next;
 
 	entry->up = status;
+	entry->timeOfServiceChange = time(NULL);
 	return 0;
 }
 
@@ -129,6 +131,7 @@ int setStatusFromName(char* name, bool status) {
 	for (int i = 0; i < registryLength; i++) {
 		if (strcmp(name, entry->node->name) == 0) {
 			entry->up = status;
+			entry->timeOfServiceChange = time(NULL);
 			return 0;
 		}
 		entry = entry->next;

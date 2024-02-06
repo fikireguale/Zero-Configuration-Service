@@ -1,11 +1,13 @@
 #include "zcs.h"
 #include <stdbool.h>
+#include <time.h>
 typedef struct registryEntry registryEntry;
 typedef struct adEntry adEntry;
 
 struct registryEntry {
     node* node;
     bool up;
+    time_t timeOfServiceChange;
     registryEntry* next;
 };
 

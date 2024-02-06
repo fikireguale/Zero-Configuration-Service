@@ -39,6 +39,8 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
     insertEntry(thisService);
     //start HEARTBEAT
 
+    zcs_log();
+
     return 0;
 }
 
@@ -108,5 +110,15 @@ int zcs_shutdown() {
 }
 
 void zcs_log() {
+    printf("-------- LOG START --------\n");
 
+    for (int i = 0; i < getRegistryLength(); i++) {
+        registryEntry* entry = getEntryFromIndex(i);
+        printf("Node name: %s\nSatus: %s\nLast Status Change: %f seconds ago\nAttributes:\n", entry->node->name, entry->up ? "UP" : "DOWN", difftime(entry->timeOfServiceChange, time(NULL)));
+        for (int j = 0; j < entry->node->numOfAttr; j++) {
+            printf("\t%s: %s\n", entry->node->attr[j].attr_name, entry->node->attr[j].value);
+        }
+    }
+
+    printf("--------- LOG END ---------\n");
 }
