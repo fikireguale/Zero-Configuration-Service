@@ -52,7 +52,22 @@ int zcs_query(char *attr_name, char *attr_value, char *node_names[], int namelen
     // if yes, add to name array
     // return number of valid nodes found
 
-    return 0;
+    //send discovery? perhaps send discovery, then listen for a set period of time for notifications (e.g. wait 5s after last notification) to ensure all the responses (e.g. wait for a listening thread to join)
+
+    int count = 0;
+
+    for (int i = 0; i < getRegistryLength() && count < namelen; i++) {
+        registryEntry* entry = getEntryFromIndex(i);
+        if (!entry->up) continue; //if node is down, doesnt really make sense to consider it
+        for (int j = 0; j < entry->node->numOfAttr && count < namelen; j++) {
+            if (strcmp(attr_name, entry->node->attr[j].attr_name) == 0 && strcmp(attr_value, entry->node->attr[j].value) == 0) {
+                node_names[count] = entry->node->name;
+                count++;
+            }
+        }
+    }
+
+    return count;
 }
 
 int zcs_get_attribs(char *name, zcs_attribute_t attr[], int *num) {
@@ -81,10 +96,9 @@ int zcs_listen_ad(char *name, zcs_cb_f cback) {
 
 int zcs_shutdown() {
     //check that service was already registered and that it is currently UP. if not fail
-    if (!up) 
+    if (userType == 0) 
         return -1;
 
-    // mark service as DOWN in local registry
     // if local registry is a linked list, can just remove the entry locally. other nodes will mark as down due to lack of heartbeat
     // if service comes back, add to end of local registry and start heartbeating again. other nodes will see the service name in their registry and just mark it as up
     removeEntryFromName(thisService->name);
