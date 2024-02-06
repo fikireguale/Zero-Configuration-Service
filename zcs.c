@@ -39,8 +39,6 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
     insertEntry(thisService);
     //start HEARTBEAT
 
-    zcs_log();
-
     return 0;
 }
 
