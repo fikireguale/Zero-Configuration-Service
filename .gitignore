@@ -59,6 +59,7 @@ app
 service
 .vscode
 .vs
+.nfs*
 
 # End of https://www.toptal.com/developers/gitignore/api/c
 
