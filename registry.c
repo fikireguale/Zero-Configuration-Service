@@ -3,11 +3,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-int length = 0;
+int registryLength = 0;
+int subscriptionLength = 0;
 registryEntry* head = NULL;
+adEntry* headAd = NULL;
 
 int getRegistryLength() {
-	return length;
+	return registryLength;
+}
+
+int getAdSubscriptionLength() {
+	return subscriptionLength;
 }
 
 void insertEntry(node* entry) {
@@ -16,7 +22,7 @@ void insertEntry(node* entry) {
 	newEntry->node = entry;
 	newEntry->up = true;
 
-	if (length == 0) {
+	if (registryLength == 0) {
 		head = newEntry;
 	} else {
 		registryEntry* next = head;
@@ -28,11 +34,33 @@ void insertEntry(node* entry) {
 		next->next = newEntry;
 	}
 	
-	length++;
+	registryLength++;
+}
+
+void insertAd(char* serviceName, zcs_cb_f cback) {
+	adEntry* newEntry = malloc(sizeof(adEntry));
+	newEntry->next = NULL;
+	newEntry->serviceName = serviceName;
+	newEntry->cback = cback;
+
+	if (subscriptionLength == 0) {
+		headAd = newEntry;
+	}
+	else {
+		adEntry* next = headAd;
+
+		while (next->next != NULL) {
+			next = next->next;
+		}
+
+		next->next = newEntry;
+	}
+
+	subscriptionLength++;
 }
 
 registryEntry* getEntryFromIndex(int index) {
-	if (length == 0 || length <= index || index < 0)
+	if (registryLength == 0 || registryLength <= index || index < 0)
 		return NULL;
 	
 	registryEntry* entry = head;
@@ -42,12 +70,23 @@ registryEntry* getEntryFromIndex(int index) {
 	return entry;
 }
 
+adEntry* getAdFromIndex(int index) {
+	if (subscriptionLength == 0 || subscriptionLength <= index || index < 0)
+		return NULL;
+
+	adEntry* entry = headAd;
+	for (int i = 0; i < index; i++)
+		entry = entry->next;
+
+	return entry;
+}
+
 registryEntry* getEntryFromName(char* name) {
-	if (length == 0)
+	if (registryLength == 0)
 		return NULL;
 
 	registryEntry* entry = head;
-	for (int i = 0; i < length; i++) {
+	for (int i = 0; i < registryLength; i++) {
 		if (strcmp(name, entry->node->name) == 0)
 			return entry;
 		entry = entry->next;
@@ -56,8 +95,22 @@ registryEntry* getEntryFromName(char* name) {
 	return NULL;
 }
 
+adEntry* getAdFromService(char* serviceName) {
+	if (subscriptionLength == 0)
+		return NULL;
+
+	adEntry* entry = headAd;
+	for (int i = 0; i < registryLength; i++) {
+		if (strcmp(serviceName, entry->serviceName) == 0)
+			return entry;
+		entry = entry->next;
+	}
+
+	return NULL;
+}
+
 int setStatusFromIndex(int index, bool status) {
-	if (length == 0 || length <= index || index < 0)
+	if (registryLength == 0 || registryLength <= index || index < 0)
 		return -1;
 
 	registryEntry* entry = head;
@@ -69,11 +122,11 @@ int setStatusFromIndex(int index, bool status) {
 }
 
 int setStatusFromName(char* name, bool status) {
-	if (length == 0)
+	if (registryLength == 0)
 		return -1;
 
 	registryEntry* entry = head;
-	for (int i = 0; i < length; i++) {
+	for (int i = 0; i < registryLength; i++) {
 		if (strcmp(name, entry->node->name) == 0) {
 			entry->up = status;
 			return 0;
@@ -85,7 +138,7 @@ int setStatusFromName(char* name, bool status) {
 }
 
 registryEntry* removeEntryFromIndex(int index) {
-	if (length == 0 || length <= index || index < 0)
+	if (registryLength == 0 || registryLength <= index || index < 0)
 		return NULL;
 	
 	registryEntry* entry = head;
@@ -101,17 +154,17 @@ registryEntry* removeEntryFromIndex(int index) {
 		prevEntry->next = entry->next;
 	
 	free(entry);
-	length--;
+	registryLength--;
 	return entry;
 }
 
 registryEntry* removeEntryFromName(char* name) {
-	if (length == 0)
+	if (registryLength == 0)
 		return NULL;
 
 	registryEntry* entry = head;
 	registryEntry* prevEntry = NULL;
-	for (int i = 0; i < length; i++) {
+	for (int i = 0; i < registryLength; i++) {
 		if (strcmp(name, entry->node->name) == 0) {
 			if (prevEntry == NULL)
 				head = entry->next;
@@ -119,7 +172,7 @@ registryEntry* removeEntryFromName(char* name) {
 				prevEntry->next = entry->next;
 			
 			free(entry);
-			length--;
+			registryLength--;
 			return entry;
 		}
 
