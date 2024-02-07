@@ -3,13 +3,15 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <pthread.h>
 #include "registry.h"
 #include "multicast.h"
+
+#define BUFFERSIZE 1000
 
 int userType = 0;
 bool up = false;
 node *thisService;
-const int BUFFERSIZE = 1000;
 char buffer[BUFFERSIZE];
 int readPt = 0;
 int writePt = 0;
@@ -76,7 +78,7 @@ int zcs_init(int type) {
     userType = type;
 
     // Start network
-    int rport = atoi(argv[1]); // 5000
+    int rport = atoi("5000"); // 5000
     int sport = rport + rport + random() % rport; // 6000
     // Channel used to send instructions to nodes via sport
     mcast_t *mcastAppToNode = multicast_init("224.1.1.1", sport, 0);
