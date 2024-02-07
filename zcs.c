@@ -7,10 +7,11 @@
 #include <semaphore.h>
 #include "registry.h"
 #include "multicast.h"
+#include <unistd.h>
 
 #define BUFFERSIZE 1000
 #define RPORT 5000
-#define SPORT 5001
+#define SPORT 6000
 
 int userType = 0;
 bool up = false;
@@ -28,8 +29,7 @@ int MAX_RETRIES = 3;
 int zcs_init_is_done = 0;
 int zcs_shutdown_ongoing = 0;
 
-mcast_t* mcastAppToNode;
-mcast_t* mcastNodeToApp;
+mcast_t* mcast;
 
 void processData(char* read_data) {
     printf("processing data... %s", read_data);
@@ -109,9 +109,9 @@ void* write_buffer(void* arg) {
             pthread_cond_wait(&empty, &buffer_mutex);
         }
 
-        if (multicast_check_receive(mcastNodeToApp)) {
+        if (multicast_check_receive(mcast)) {
             printf("message received!\n");
-            num_bytes_received = multicast_receive(mcastNodeToApp, temp_buffer, sizeof(temp_buffer));
+            num_bytes_received = multicast_receive(mcast, temp_buffer, sizeof(temp_buffer));
             if (num_bytes_received > 0) {
                 pthread_mutex_lock(&buffer_mutex);
                 if (writePt + num_bytes_received < sizeof(buffer)) {
@@ -176,17 +176,13 @@ int zcs_init(int type) {
     userType = type;
 
     // Start network
-    int rport = RPORT; // 5000
-    int sport = SPORT; // 6000
     // Channel used to send instructions to nodes via sport
-    mcastAppToNode = malloc(sizeof(mcast_t));
-    mcastAppToNode = multicast_init("224.1.1.1", sport, rport);
-    // Channel used to receive responses from nodes via rport
-    mcastNodeToApp = malloc(sizeof(mcast_t));
-    mcastNodeToApp = multicast_init("224.1.1.1", sport, rport);
-
-    if (mcastAppToNode == NULL || mcastNodeToApp == NULL) {
-        return -1;
+    if (userType == ZCS_SERVICE_TYPE) {
+        mcast = multicast_init("224.1.1.1", SPORT, RPORT);
+        multicast_setup_recv(mcast);
+    } else {
+        mcast = multicast_init("224.1.1.1", RPORT, SPORT);
+        multicast_setup_recv(mcast);
     }
 
     pthread_t listen_thread, respond_thread;
@@ -210,11 +206,11 @@ int zcs_init(int type) {
     if (userType == ZCS_APP_TYPE) {
         printf("sending discovery\n");
         // Send 1 DISCOVERY msg
-        char* msg = malloc(sizeof(char) * 5);
-        msg = "$01#";
-        multicast_send(mcastAppToNode, msg, strlen(msg));
+        char* msg = "$01#";
+        multicast_send(mcast, msg, strlen(msg));
         // wait 1 sec
     }
+
     // Read messages using read_buffer() above
         // + handle all msg types
                 // for app:

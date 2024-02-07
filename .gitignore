@@ -57,6 +57,8 @@ dkms.conf
 
 app
 service
+receiver_test
+sender_test
 .vscode
 .vs
 .nfs*
