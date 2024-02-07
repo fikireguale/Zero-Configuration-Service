@@ -4,4 +4,7 @@ RUN apt-get update && apt-get install -y \
     net-tools \
     iputils-ping \
     iproute2 \
-    macchanger
+    macchanger \
+    make \
+    gcc \
+    musl-dev
