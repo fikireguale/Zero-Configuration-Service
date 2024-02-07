@@ -18,7 +18,9 @@
 
 int userType = 0;
 bool up = false;
-node *thisService;
+
+node* thisService;
+
 char buffer[BUFFERSIZE];
 // threads
 int readPt = 0;
@@ -190,13 +192,13 @@ void* read_buffer(void* arg) {
             // shutdown procedure
             break;
         }
-        
+
         pthread_mutex_lock(&buffer_mutex);
         // While buffer is empty wait
         while (writePt == readPt) {
             pthread_cond_wait(&full, &buffer_mutex);
         }
-       
+
         int num_bytes_to_read = writePt;
         if (num_bytes_to_read > 0) {
             char read_data[num_bytes_to_read];
@@ -271,11 +273,11 @@ int zcs_init(int type) {
     return 0;
 }
 
-int zcs_start(char *name, zcs_attribute_t attr[], int num) {
+int zcs_start(char* name, zcs_attribute_t attr[], int num) {
     //check for proper initialization of library
     if (userType == 0)
         return -1;
-    
+
     thisService = malloc(sizeof(*thisService) + sizeof(zcs_attribute_t) * num);
 
     thisService->name = name;
@@ -299,11 +301,11 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
     return 0;
 }
 
-int zcs_post_ad(char *ad_name, char *ad_value) {
+int zcs_post_ad(char* ad_name, char* ad_value) {
     return 0;
 }
 
-int zcs_query(char *attr_name, char *attr_value, char *node_names[], int namelen) {
+int zcs_query(char* attr_name, char* attr_value, char* node_names[], int namelen) {
     // iterate over local registry
     // for each node, check to see if it has an attribute with a specific value (until registry is exhausted or name array full, i.e. namelen entries)
     // if yes, add to name array
@@ -325,7 +327,7 @@ int zcs_query(char *attr_name, char *attr_value, char *node_names[], int namelen
     return count;
 }
 
-int zcs_get_attribs(char *name, zcs_attribute_t attr[], int *num) {
+int zcs_get_attribs(char* name, zcs_attribute_t attr[], int* num) {
     // for the provided service name, set the (preallocated) array to the number of attributes
     // num originally size of the array. set num to attributes read. so you will always read <= num attributes
     // if num < node->numOfAttr, return num attributes. otherwise return node->numOfAttr attributes
@@ -345,7 +347,7 @@ int zcs_get_attribs(char *name, zcs_attribute_t attr[], int *num) {
     return 0;
 }
 
-int zcs_listen_ad(char *name, zcs_cb_f cback) {
+int zcs_listen_ad(char* name, zcs_cb_f cback) {
     return 0;
 }
 
