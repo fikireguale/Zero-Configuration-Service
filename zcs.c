@@ -240,13 +240,13 @@ int zcs_init(int type) {
     pthread_mutex_init(&buffer_mutex, NULL);
 
     // Start listening thread where buffer gets written
-    if (pthread_create(&listen_thread, NULL, write_buffer, NULL) != 0) {
+    if (pthread_create(&listen_thread, NULL, write_buffer, NULL) != 0 && pthread_detach(listen_thread) != 0) {
         perror("Failed to create listening thread");
         return -1;
     }
 
      // Start response thread where buffer gets read
-    if (pthread_create(&respond_thread, NULL, read_buffer, NULL) != 0) {
+    if (pthread_create(&respond_thread, NULL, read_buffer, NULL) != 0 && pthread_detach(respond_thread) != 0) {
         perror("Failed to create response thread");
         return -1;
     }
@@ -291,7 +291,7 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
     generateNotification();
 
     //start HEARTBEAT
-    if (pthread_create(&heartbeat_thread, NULL, heartbeat, NULL) != 0) {
+    if (pthread_create(&heartbeat_thread, NULL, heartbeat, NULL) != 0 && pthread_detach(heartbeat_thread) != 0) {
         perror("Failed to create heartbeat thread");
         return -1;
     }
