@@ -37,6 +37,7 @@ int zcs_shutdown_ongoing = 0;
 
 mcast_t* mcast;
 
+// generate heartbeat message, then repeatedly send it while service is up
 void* heartbeat(void* arg) {
     char message[1000];
     strcat(message, "$10|");
@@ -48,8 +49,10 @@ void* heartbeat(void* arg) {
     }
 }
 
+// generate and send the notification message for this service
 void generateNotification() {
     char message[1000];
+    memset(message, '\0', 1000);
     strcat(message, "$00|");
     strcat(message, thisService->name);
     strcat(message, "|");
@@ -66,10 +69,10 @@ void generateNotification() {
     }
 
     strcat(message, "#");
-
     multicast_send(mcast, message, strlen(message));
 }
 
+// process the data received through multicast. handle the different typesof messages
 void processData(char* read_data) {
     printf("processing data... %s\n", read_data);
     char* start = read_data;
@@ -173,6 +176,7 @@ void* write_buffer(void* arg) {
                     // 'num_bytes_received + 1' to include the null terminator?
                     memcpy(buffer + writePt, temp_buffer, num_bytes_received);
                     writePt += num_bytes_received % BUFFERSIZE;
+                    memset(temp_buffer, '\0', strlen(temp_buffer));
                 }
                 pthread_mutex_unlock(&buffer_mutex);
             }
@@ -211,8 +215,8 @@ void* read_buffer(void* arg) {
             processData(read_data);
 
             // Clear the buffer and reset writePt
-            memset(buffer, 0, BUFFERSIZE);
-            memset(read_data, 0, num_bytes_to_read);
+            memset(buffer, '\0', BUFFERSIZE);
+            memset(read_data, '\0', num_bytes_to_read);
             writePt = 0;
         }
 
@@ -228,29 +232,29 @@ int zcs_init(int type) {
     setServiceTO(HEARTBEATTO);
 
     // Start network
-    // Channel used to send instructions to nodes via sport
-    if (userType == ZCS_SERVICE_TYPE) {
+    if (userType == ZCS_SERVICE_TYPE) 
         mcast = multicast_init(IP, SPORT, RPORT);
-        multicast_setup_recv(mcast);
-    } else {
+    else 
         mcast = multicast_init(IP, RPORT, SPORT);
-        multicast_setup_recv(mcast);
-    }
+
+    multicast_setup_recv(mcast);
 
     pthread_cond_init(&full, NULL);
     pthread_cond_init(&empty, NULL);
     pthread_mutex_init(&buffer_mutex, NULL);
 
-    // Start listening thread where buffer gets written
-    if (pthread_create(&listen_thread, NULL, write_buffer, NULL) != 0 && pthread_detach(listen_thread) != 0) {
-        perror("Failed to create listening thread");
-        return -1;
-    }
+    if (userType == ZCS_APP_TYPE) {
+        // Start listening thread where buffer gets written
+        if (pthread_create(&listen_thread, NULL, write_buffer, NULL) != 0 && pthread_detach(listen_thread) != 0) {
+            perror("Failed to create listening thread");
+            return -1;
+        }
 
-     // Start response thread where buffer gets read
-    if (pthread_create(&respond_thread, NULL, read_buffer, NULL) != 0 && pthread_detach(respond_thread) != 0) {
-        perror("Failed to create response thread");
-        return -1;
+        // Start response thread where buffer gets read
+        if (pthread_create(&respond_thread, NULL, read_buffer, NULL) != 0 && pthread_detach(respond_thread) != 0) {
+            perror("Failed to create response thread");
+            return -1;
+        }
     }
 
     // App broadcasts DISCOVERY (and listens for NOTIFICATIONs to update its local_registry)
@@ -273,10 +277,10 @@ int zcs_init(int type) {
     return 0;
 }
 
+// bring a service online
 int zcs_start(char* name, zcs_attribute_t attr[], int num) {
     //check for proper initialization of library
-    if (userType == 0)
-        return -1;
+    if (userType == 0) return -1;
 
     thisService = malloc(sizeof(*thisService) + sizeof(zcs_attribute_t) * num);
 
@@ -288,15 +292,28 @@ int zcs_start(char* name, zcs_attribute_t attr[], int num) {
     }
 
     up = true;
+    zcs_shutdown_ongoing = 0;
 
-    //send NOTIFICATION message to tell about about existence/status of this service
-    generateNotification();
+    // Start listening thread where buffer gets written
+    if (pthread_create(&listen_thread, NULL, write_buffer, NULL) != 0 && pthread_detach(listen_thread) != 0) {
+        perror("Failed to create listening thread");
+        return -1;
+    }
+
+    // Start response thread where buffer gets read
+    if (pthread_create(&respond_thread, NULL, read_buffer, NULL) != 0 && pthread_detach(respond_thread) != 0) {
+        perror("Failed to create response thread");
+        return -1;
+    }
 
     //start HEARTBEAT
     if (pthread_create(&heartbeat_thread, NULL, heartbeat, NULL) != 0 && pthread_detach(heartbeat_thread) != 0) {
         perror("Failed to create heartbeat thread");
         return -1;
     }
+
+    //send NOTIFICATION message to tell about about existence/status of this service
+    generateNotification();
 
     return 0;
 }
@@ -305,6 +322,7 @@ int zcs_post_ad(char* ad_name, char* ad_value) {
     return 0;
 }
 
+// check local registry for a node which is 1) up and 2) has the desired attribute:value
 int zcs_query(char* attr_name, char* attr_value, char* node_names[], int namelen) {
     // iterate over local registry
     // for each node, check to see if it has an attribute with a specific value (until registry is exhausted or name array full, i.e. namelen entries)
@@ -327,6 +345,7 @@ int zcs_query(char* attr_name, char* attr_value, char* node_names[], int namelen
     return count;
 }
 
+// gets attributes of a node from registry 
 int zcs_get_attribs(char* name, zcs_attribute_t attr[], int* num) {
     // for the provided service name, set the (preallocated) array to the number of attributes
     // num originally size of the array. set num to attributes read. so you will always read <= num attributes
@@ -335,8 +354,7 @@ int zcs_get_attribs(char* name, zcs_attribute_t attr[], int* num) {
     //get node from registry
     registryEntry* entry = getEntryFromName(name);
 
-    if (entry == NULL)
-        return -1; //error if no service with given name
+    if (entry == NULL) return -1; //error if no service with given name
 
     int i = 0;
     for (; i < entry->node->numOfAttr && i < *num; i++) {
@@ -351,6 +369,7 @@ int zcs_listen_ad(char* name, zcs_cb_f cback) {
     return 0;
 }
 
+// shutdown app/service. stops all threads
 int zcs_shutdown() {
     //check that service was already registered and that it is currently UP. if not fail
     if (userType == 0)
@@ -360,6 +379,11 @@ int zcs_shutdown() {
     // if service comes back, will start heartbeating again. apps will see the service name in their registry and just mark it as up
     if (userType == ZCS_SERVICE_TYPE)
         free(thisService);
+    
+    if (userType == ZCS_APP_TYPE)
+        while (true) {}
+
+    zcs_shutdown_ongoing = 1;
     up = false; //stops HEARTBEAT, if this is a service
 
     return 0;
