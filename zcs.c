@@ -12,6 +12,7 @@
 #define BUFFERSIZE 1000
 #define RPORT 5000
 #define SPORT 6000
+#define IP "224.1.1.1"
 
 int userType = 0;
 bool up = false;
@@ -31,8 +32,30 @@ int zcs_shutdown_ongoing = 0;
 
 mcast_t* mcast;
 
+void generateNotification() {
+    char message[1000];
+    strcat(message, "$00|");
+    strcat(message, thisService->name);
+    strcat(message, "|");
+    char snum[5];
+    sprintf(snum, "%d", thisService->numOfAttr);
+    strcat(message, snum);
+    strcat(message, "|");
+
+    for (int i = 0; i < thisService->numOfAttr; i++) {
+        strcat(message, thisService->attr[i].attr_name);
+        strcat(message, ";");
+        strcat(message, thisService->attr[i].value);
+        strcat(message, ";");
+    }
+
+    strcat(message, "#");
+
+    multicast_send(mcast, message, strlen(message));
+}
+
 void processData(char* read_data) {
-    printf("processing data... %s", read_data);
+    printf("processing data... %s\n", read_data);
     char* start = read_data;
     char* end;
     // strchr(): returns a pointer to '$' if it is found in start ie read_data
@@ -47,17 +70,28 @@ void processData(char* read_data) {
 
         // Parse msg
         if (strncmp(msg, "00", 2) == 0) {
+            msg += 3;
             // NOTIFICATION
             // msg = "$msgType|nodeName|numOfAttr|status|attrName1=value1;attrName2=value2;...#"
             // --> output a list of node structs
-            char* nodeName = strtok(msg + 3, "|");
+            char* nodeName = strtok(msg, "|");
             char* numOfAttrStr = strtok(NULL, "|");
-            char* status = strtok(NULL, "|");
-            char* attributes = strtok(NULL, "|");
-
             int numOfAttr = atoi(numOfAttrStr);
 
-            printf("NOTIFICATION from %s, Attributes: %d, Status: %s\n", nodeName, numOfAttr, status);
+            zcs_attribute_t attr[numOfAttr];
+
+            node* n = malloc(sizeof(node) + sizeof(zcs_attribute_t) * numOfAttr);;
+            n->name = strdup(nodeName);
+            n->numOfAttr = numOfAttr;
+
+            for (int i = 0; i < numOfAttr; i++) {
+                n->attr[i].attr_name = strdup(strtok(NULL, ";"));
+                n->attr[i].value = strdup(strtok(NULL, ";"));
+            }
+
+            insertEntry(n);
+
+            printf("NOTIFICATION from %s, Attributes: %d\n", nodeName, numOfAttr);
             // parse attributes
 
         }
@@ -66,7 +100,7 @@ void processData(char* read_data) {
             // msg = "$01#"
             // --> as a node, send a notif
             printf("DISCOVERY message received\n");
-
+            generateNotification();
         }
         else if (strncmp(msg, "10", 2) == 0) {
             // HEARTBEAT
@@ -110,7 +144,6 @@ void* write_buffer(void* arg) {
         }
 
         if (multicast_check_receive(mcast)) {
-            printf("message received!\n");
             num_bytes_received = multicast_receive(mcast, temp_buffer, sizeof(temp_buffer));
             if (num_bytes_received > 0) {
                 pthread_mutex_lock(&buffer_mutex);
@@ -142,12 +175,10 @@ void* read_buffer(void* arg) {
         
         pthread_mutex_lock(&buffer_mutex);
         // While buffer is empty wait
-        printf("waiting for writes...\n");
         while (writePt == readPt) {
             pthread_cond_wait(&full, &buffer_mutex);
         }
        
-        printf("write happened! %d bytes\n", writePt);
         int num_bytes_to_read = writePt;
         if (num_bytes_to_read > 0) {
             char read_data[num_bytes_to_read];
@@ -178,10 +209,10 @@ int zcs_init(int type) {
     // Start network
     // Channel used to send instructions to nodes via sport
     if (userType == ZCS_SERVICE_TYPE) {
-        mcast = multicast_init("224.1.1.1", SPORT, RPORT);
+        mcast = multicast_init(IP, SPORT, RPORT);
         multicast_setup_recv(mcast);
     } else {
-        mcast = multicast_init("224.1.1.1", RPORT, SPORT);
+        mcast = multicast_init(IP, RPORT, SPORT);
         multicast_setup_recv(mcast);
     }
 
@@ -204,11 +235,10 @@ int zcs_init(int type) {
 
     // App broadcasts DISCOVERY (and listens for NOTIFICATIONs to update its local_registry)
     if (userType == ZCS_APP_TYPE) {
-        printf("sending discovery\n");
         // Send 1 DISCOVERY msg
         char* msg = "$01#";
         multicast_send(mcast, msg, strlen(msg));
-        // wait 1 sec
+        sleep(1);
     }
 
     // Read messages using read_buffer() above
@@ -243,6 +273,9 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
     //printf("%s\n", thisService->attr[num-1].attr_name);
 
     //put node into local library log, then send NOTIFICATION message to tell other nodes about existence/being UP
+
+    generateNotification();
+
     insertEntry(thisService);
     //start HEARTBEAT
 
@@ -258,8 +291,6 @@ int zcs_query(char *attr_name, char *attr_value, char *node_names[], int namelen
     // for each node, check to see if it has an attribute with a specific value (until registry is exhausted or name array full, i.e. namelen entries)
     // if yes, add to name array
     // return number of valid nodes found
-
-    //send discovery? perhaps send discovery, then listen for a set period of time for notifications (e.g. wait 5s after last notification) to ensure all the responses (e.g. wait for a listening thread to join)
 
     int count = 0;
 
@@ -320,7 +351,7 @@ void zcs_log() {
 
     for (int i = 0; i < getRegistryLength(); i++) {
         registryEntry* entry = getEntryFromIndex(i);
-        printf("Node name: %s\nSatus: %s\nLast Status Change: %f seconds ago\nAttributes:\n", entry->node->name, entry->up ? "UP" : "DOWN", difftime(entry->timeOfServiceChange, time(NULL)));
+        printf("Node name: %s\nSatus: %s\nLast Status Change: %f seconds ago\nAttributes:\n", entry->node->name, entry->up ? "UP" : "DOWN", difftime(time(NULL), entry->timeOfServiceChange));
         for (int j = 0; j < entry->node->numOfAttr; j++) {
             printf("\t%s: %s\n", entry->node->attr[j].attr_name, entry->node->attr[j].value);
         }

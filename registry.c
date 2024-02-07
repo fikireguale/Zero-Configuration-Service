@@ -140,6 +140,8 @@ int setStatusFromName(char* name, bool status) {
 	return -1;
 }
 
+// i am pretty sure i am not freeing all the memory
+
 registryEntry* removeEntryFromIndex(int index) {
 	if (registryLength == 0 || registryLength <= index || index < 0)
 		return NULL;
