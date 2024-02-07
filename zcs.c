@@ -8,10 +8,13 @@
 #include "registry.h"
 #include "multicast.h"
 
+#define BUFFERSIZE 1000
+#define RPORT 5000
+#define SPORT 5001
+
 int userType = 0;
 bool up = false;
 node *thisService;
-const int BUFFERSIZE = 1000;
 char buffer[BUFFERSIZE];
 // threads
 int readPt = 0;
@@ -25,7 +28,72 @@ int MAX_RETRIES = 3;
 int zcs_init_is_done = 0;
 int zcs_shutdown_ongoing = 0;
 
-void* write_buffer(void* arg, mcast_t *mcastNodeToApp) {
+mcast_t* mcastAppToNode;
+mcast_t* mcastNodeToApp;
+
+void processData(char* read_data) {
+    printf("processing data... %s", read_data);
+    char* start = read_data;
+    char* end;
+    // strchr(): returns a pointer to '$' if it is found in start ie read_data
+    while ((start = strchr(start, '$')) != NULL) {
+        end = strchr(start, '#');
+        if (end == NULL) {
+            break; // No end marker found, stop processing
+        }
+
+        *end = '\0'; // Replace '#' to isolate the msg
+        char* msg = start + 1; // Start of actual msg (skip '$')
+
+        // Parse msg
+        if (strncmp(msg, "00", 2) == 0) {
+            // NOTIFICATION
+            // msg = "$msgType|nodeName|numOfAttr|status|attrName1=value1;attrName2=value2;...#"
+            // --> output a list of node structs
+            char* nodeName = strtok(msg + 3, "|");
+            char* numOfAttrStr = strtok(NULL, "|");
+            char* status = strtok(NULL, "|");
+            char* attributes = strtok(NULL, "|");
+
+            int numOfAttr = atoi(numOfAttrStr);
+
+            printf("NOTIFICATION from %s, Attributes: %d, Status: %s\n", nodeName, numOfAttr, status);
+            // parse attributes
+
+        }
+        else if (strncmp(msg, "01", 2) == 0) {
+            // DISCOVERY
+            // msg = "$01#"
+            // --> as a node, send a notif
+            printf("DISCOVERY message received\n");
+
+        }
+        else if (strncmp(msg, "10", 2) == 0) {
+            // HEARTBEAT
+            // msg = "$10|nodeName#"
+            char* nodeName = strtok(msg + 3, "|"); // +3 to skip "10|"
+            printf("HEARTBEAT from %s\n", nodeName);
+            // --> heartbeat logic
+
+        }
+        else if (strncmp(msg, "11", 2) == 0) {
+            // ADVERTISEMENT
+            // msg = "$msgType|nodeName|ad_name;ad_value#"
+            char* nodeName = strtok(msg + 3, "|");
+            char* ad_content = strtok(NULL, "|");
+            printf("ADVERTISEMENT from %s, Content: %s\n", nodeName, ad_content);
+            // -> execute zcs_listen_ad if headAd pointer isn't null
+
+        }
+        else {
+            // Process other message types
+            printf("UNKNOWN message received\n");
+        }
+        start = end + 1; // Go to next msg
+    }
+}
+
+void* write_buffer(void* arg) {
     // Continously listening and writing messages to the buffer (except when read_buffer thread holds lock..)
     int num_bytes_received = 0;
     char temp_buffer[100];
@@ -40,7 +108,9 @@ void* write_buffer(void* arg, mcast_t *mcastNodeToApp) {
         while (((writePt + 1) % BUFFERSIZE) == readPt) {
             pthread_cond_wait(&empty, &buffer_mutex);
         }
+
         if (multicast_check_receive(mcastNodeToApp)) {
+            printf("message received!\n");
             num_bytes_received = multicast_receive(mcastNodeToApp, temp_buffer, sizeof(temp_buffer));
             if (num_bytes_received > 0) {
                 pthread_mutex_lock(&buffer_mutex);
@@ -60,7 +130,7 @@ void* write_buffer(void* arg, mcast_t *mcastNodeToApp) {
     return NULL;
 }
 
-void* read_buffer(void* arg, mcast_t *mcastAppToNode, mcast_t *mcastNodeToApp) {
+void* read_buffer(void* arg) {
     // when reading the buffer, it's possible to miss a message if buffer is held here..
     // process 
 
@@ -72,10 +142,12 @@ void* read_buffer(void* arg, mcast_t *mcastAppToNode, mcast_t *mcastNodeToApp) {
         
         pthread_mutex_lock(&buffer_mutex);
         // While buffer is empty wait
+        printf("waiting for writes...\n");
         while (writePt == readPt) {
             pthread_cond_wait(&full, &buffer_mutex);
         }
        
+        printf("write happened! %d bytes\n", writePt);
         int num_bytes_to_read = writePt;
         if (num_bytes_to_read > 0) {
             char read_data[num_bytes_to_read];
@@ -100,74 +172,18 @@ void* read_buffer(void* arg, mcast_t *mcastAppToNode, mcast_t *mcastNodeToApp) {
     return NULL;
 }
 
-void processData(char *read_data) {
-    char *start = read_data;
-    char *end;
-    // strchr(): returns a pointer to '$' if it is found in start ie read_data
-    while ((start = strchr(start, '$')) != NULL) {
-        end = strchr(start, '#');
-        if (end == NULL) {
-            break; // No end marker found, stop processing
-        }
-
-        *end = '\0'; // Replace '#' to isolate the msg
-        char *msg = start + 1; // Start of actual msg (skip '$')
-
-        // Parse msg
-        if (strncmp(msg, "00", 2) == 0) {
-            // NOTIFICATION
-            // msg = "$msgType|nodeName|numOfAttr|status|attrName1=value1;attrName2=value2;...#"
-            // --> output a list of node structs
-            char *nodeName = strtok(msg + 3, "|");
-            char *numOfAttrStr = strtok(NULL, "|");
-            char *status = strtok(NULL, "|");
-            char *attributes = strtok(NULL, "|");
-
-            int numOfAttr = atoi(numOfAttrStr);
-
-            printf("NOTIFICATION from %s, Attributes: %d, Status: %s\n", nodeName, numOfAttr, status);
-            // parse attributes
-
-        } else if (strncmp(msg, "01", 2) == 0) {
-            // DISCOVERY
-            // msg = "$01#"
-            // --> as a node, send a notif
-            printf("DISCOVERY message received\n");
-
-        } else if (strncmp(msg, "10", 2) == 0) {
-            // HEARTBEAT
-            // msg = "$10|nodeName#"
-            char *nodeName = strtok(msg + 3, "|"); // +3 to skip "10|"
-            printf("HEARTBEAT from %s\n", nodeName);
-            // --> heartbeat logic
-
-        } else if (strncmp(msg, "11", 2) == 0) {
-            // ADVERTISEMENT
-            // msg = "$msgType|nodeName|ad_name;ad_value#"
-            char *nodeName = strtok(msg + 3, "|");
-            char *ad_content = strtok(NULL, "|");
-            printf("ADVERTISEMENT from %s, Content: %s\n", nodeName, ad_content);
-            // -> execute zcs_listen_ad if headAd pointer isn't null
-
-        } else {
-            // Process other message types
-            printf("UNKNOWN message received\n");
-        }
-        start = end + 1; // Go to next msg
-    }
-}
-
-
 int zcs_init(int type) {
     userType = type;
 
     // Start network
-    int rport = atoi(argv[1]); // 5000
-    int sport = rport + rport + random() % rport; // 6000
+    int rport = RPORT; // 5000
+    int sport = SPORT; // 6000
     // Channel used to send instructions to nodes via sport
-    mcast_t *mcastAppToNode = multicast_init("224.1.1.1", sport, 0);
+    mcastAppToNode = malloc(sizeof(mcast_t));
+    mcastAppToNode = multicast_init("224.1.1.1", sport, rport);
     // Channel used to receive responses from nodes via rport
-    mcast_t *mcastNodeToApp = multicast_init("224.1.1.1", 0, rport);
+    mcastNodeToApp = malloc(sizeof(mcast_t));
+    mcastNodeToApp = multicast_init("224.1.1.1", sport, rport);
 
     if (mcastAppToNode == NULL || mcastNodeToApp == NULL) {
         return -1;
@@ -192,8 +208,10 @@ int zcs_init(int type) {
 
     // App broadcasts DISCOVERY (and listens for NOTIFICATIONs to update its local_registry)
     if (userType == ZCS_APP_TYPE) {
+        printf("sending discovery\n");
         // Send 1 DISCOVERY msg
-        char msg[] = "$01#";
+        char* msg = malloc(sizeof(char) * 5);
+        msg = "$01#";
         multicast_send(mcastAppToNode, msg, strlen(msg));
         // wait 1 sec
     }

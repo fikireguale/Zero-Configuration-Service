@@ -14,6 +14,7 @@ int main() {
     char* names[10];
     rv = zcs_query("type", "speaker", names, 10);
     if (rv > 0) {
+        printf("%s", names[0]);
         zcs_attribute_t attrs[5];
         int anum = 5;
         rv = zcs_get_attribs(names[0], attrs, &anum);
