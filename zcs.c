@@ -292,7 +292,7 @@ int zcs_listen_ad(char *name, zcs_cb_f cback) {
 
 int zcs_shutdown() {
     //check that service was already registered and that it is currently UP. if not fail
-    if (!up) 
+    if (userType == 0)
         return -1;
 
     // mark service as DOWN in local registry
@@ -305,5 +305,15 @@ int zcs_shutdown() {
 }
 
 void zcs_log() {
+    printf("-------- LOG START --------\n");
 
+    for (int i = 0; i < getRegistryLength(); i++) {
+        registryEntry* entry = getEntryFromIndex(i);
+        printf("Node name: %s\nSatus: %s\nLast Status Change: %f seconds ago\nAttributes:\n", entry->node->name, entry->up ? "UP" : "DOWN", difftime(entry->timeOfServiceChange, time(NULL)));
+        for (int j = 0; j < entry->node->numOfAttr; j++) {
+            printf("\t%s: %s\n", entry->node->attr[j].attr_name, entry->node->attr[j].value);
+        }
+    }
+
+    printf("--------- LOG END ---------\n");
 }
