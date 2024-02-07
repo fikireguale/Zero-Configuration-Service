@@ -118,8 +118,16 @@ void processData(char *read_data) {
             // NOTIFICATION
             // msg = "$msgType|nodeName|numOfAttr|status|attrName1=value1;attrName2=value2;...#"
             // --> output a list of node structs
-            printf("NOTIFICATION message received\n");
-        
+            char *nodeName = strtok(msg + 3, "|");
+            char *numOfAttrStr = strtok(NULL, "|");
+            char *status = strtok(NULL, "|");
+            char *attributes = strtok(NULL, "|");
+
+            int numOfAttr = atoi(numOfAttrStr);
+
+            printf("NOTIFICATION from %s, Attributes: %d, Status: %s\n", nodeName, numOfAttr, status);
+            // parse attributes
+
         } else if (strncmp(msg, "01", 2) == 0) {
             // DISCOVERY
             // msg = "$01#"
@@ -128,21 +136,22 @@ void processData(char *read_data) {
 
         } else if (strncmp(msg, "10", 2) == 0) {
             // HEARTBEAT
+            // msg = "$10|nodeName#"
             char *nodeName = strtok(msg + 3, "|"); // +3 to skip "10|"
             printf("HEARTBEAT from %s\n", nodeName);
-            // msg = "$10|nodeName#"
-            // --> ?
-            
+            // --> heartbeat logic
+
         } else if (strncmp(msg, "11", 2) == 0) {
             // ADVERTISEMENT
             // msg = "$msgType|nodeName|ad_name;ad_value#"
+            char *nodeName = strtok(msg + 3, "|");
+            char *ad_content = strtok(NULL, "|");
+            printf("ADVERTISEMENT from %s, Content: %s\n", nodeName, ad_content);
             // -> execute zcs_listen_ad if headAd pointer isn't null
-            printf("ADVERTISEMENT message received\n");
 
         } else {
             // Process other message types
             printf("UNKNOWN message received\n");
-
         }
         start = end + 1; // Go to next msg
     }
