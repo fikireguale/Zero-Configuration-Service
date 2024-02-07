@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+float serviceTO;
 int registryLength = 0;
 int subscriptionLength = 0;
 registryEntry* head = NULL;
@@ -16,18 +17,26 @@ int getAdSubscriptionLength() {
 	return subscriptionLength;
 }
 
+void setServiceTO(float time) {
+	serviceTO = time;
+}
+
+void checkHeartbeat(registryEntry* entry, time_t currentTime) {
+	if (difftime(currentTime, entry->timeOfLastHeartbeat) < serviceTO) 
+		entry->up = false;
+}
+
 void insertEntry(node* entry) {
 	registryEntry* newEntry = malloc(sizeof(registryEntry));
 	newEntry->next = NULL;
 	newEntry->node = entry;
 	newEntry->up = true;
-	newEntry->timeOfServiceChange = time(NULL);
+	newEntry->timeOfLastHeartbeat = time(NULL);
 
 	if (registryLength == 0) {
 		head = newEntry;
 	} else {
 		registryEntry* next = head;
-
 		while (next->next != NULL) {
 			next = next->next;
 		}
@@ -63,11 +72,13 @@ void insertAd(char* serviceName, zcs_cb_f cback) {
 registryEntry* getEntryFromIndex(int index) {
 	if (registryLength == 0 || registryLength <= index || index < 0)
 		return NULL;
-	
-	registryEntry* entry = head;
-	for (int i = 0; i < index; i++)
-		entry = entry->next;
 
+	registryEntry* entry = head;
+	for (int i = 0; i < index; i++) {
+		entry = entry->next;
+	}
+
+	checkHeartbeat(entry, time(NULL));
 	return entry;
 }
 
@@ -88,8 +99,10 @@ registryEntry* getEntryFromName(char* name) {
 
 	registryEntry* entry = head;
 	for (int i = 0; i < registryLength; i++) {
-		if (strcmp(name, entry->node->name) == 0)
+		if (strcmp(name, entry->node->name) == 0) {
+			checkHeartbeat(entry, time(NULL));
 			return entry;
+		}
 		entry = entry->next;
 	}
 
@@ -119,7 +132,7 @@ int setStatusFromIndex(int index, bool status) {
 		entry = entry->next;
 
 	entry->up = status;
-	entry->timeOfServiceChange = time(NULL);
+	entry->timeOfLastHeartbeat = time(NULL);
 	return 0;
 }
 
@@ -131,7 +144,7 @@ int setStatusFromName(char* name, bool status) {
 	for (int i = 0; i < registryLength; i++) {
 		if (strcmp(name, entry->node->name) == 0) {
 			entry->up = status;
-			entry->timeOfServiceChange = time(NULL);
+			entry->timeOfLastHeartbeat = time(NULL);
 			return 0;
 		}
 		entry = entry->next;
@@ -140,7 +153,7 @@ int setStatusFromName(char* name, bool status) {
 	return -1;
 }
 
-// i am pretty sure i am not freeing all the memory
+// i am pretty sure i am not freeing all the memory correctly
 
 registryEntry* removeEntryFromIndex(int index) {
 	if (registryLength == 0 || registryLength <= index || index < 0)

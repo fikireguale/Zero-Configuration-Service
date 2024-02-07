@@ -13,6 +13,8 @@
 #define RPORT 5000
 #define SPORT 6000
 #define IP "224.1.1.1"
+#define HEARTBEATTO 5.0
+#define HEARTBEATPAUSE 2
 
 int userType = 0;
 bool up = false;
@@ -25,12 +27,24 @@ const int DATA_SIZE = 100;
 pthread_cond_t full;
 pthread_cond_t empty;
 pthread_mutex_t buffer_mutex;
+pthread_t listen_thread, respond_thread, heartbeat_thread;
 // linked list for specific nodes for zcs_listen_ad 
 int MAX_RETRIES = 3;
 int zcs_init_is_done = 0;
 int zcs_shutdown_ongoing = 0;
 
 mcast_t* mcast;
+
+void* heartbeat(void* arg) {
+    char message[1000];
+    strcat(message, "$10|");
+    strcat(message, thisService->name);
+    strcat(message, "#");
+    while (up) {
+        multicast_send(mcast, message, strlen(message));
+        sleep(HEARTBEATPAUSE);
+    }
+}
 
 void generateNotification() {
     char message[1000];
@@ -89,7 +103,10 @@ void processData(char* read_data) {
                 n->attr[i].value = strdup(strtok(NULL, ";"));
             }
 
-            insertEntry(n);
+            if (getEntryFromName(n->name) != NULL) //if service wasnt previously registered, register it
+                insertEntry(n);
+            else //if it was, change its status to being UP
+                setStatusFromName(n->name, true);
 
             printf("NOTIFICATION from %s, Attributes: %d\n", nodeName, numOfAttr);
             // parse attributes
@@ -107,6 +124,7 @@ void processData(char* read_data) {
             // msg = "$10|nodeName#"
             char* nodeName = strtok(msg + 3, "|"); // +3 to skip "10|"
             printf("HEARTBEAT from %s\n", nodeName);
+            setStatusFromName(nodeName, true);
             // --> heartbeat logic
 
         }
@@ -205,6 +223,7 @@ void* read_buffer(void* arg) {
 
 int zcs_init(int type) {
     userType = type;
+    setServiceTO(HEARTBEATTO);
 
     // Start network
     // Channel used to send instructions to nodes via sport
@@ -216,7 +235,6 @@ int zcs_init(int type) {
         multicast_setup_recv(mcast);
     }
 
-    pthread_t listen_thread, respond_thread;
     pthread_cond_init(&full, NULL);
     pthread_cond_init(&empty, NULL);
     pthread_mutex_init(&buffer_mutex, NULL);
@@ -268,16 +286,15 @@ int zcs_start(char *name, zcs_attribute_t attr[], int num) {
     }
 
     up = true;
-    //test statements to check that node is properly created
-    //printf("service started\n");
-    //printf("%s\n", thisService->attr[num-1].attr_name);
 
-    //put node into local library log, then send NOTIFICATION message to tell other nodes about existence/being UP
-
+    //send NOTIFICATION message to tell about about existence/status of this service
     generateNotification();
 
-    insertEntry(thisService);
     //start HEARTBEAT
+    if (pthread_create(&heartbeat_thread, NULL, heartbeat, NULL) != 0) {
+        perror("Failed to create heartbeat thread");
+        return -1;
+    }
 
     return 0;
 }
@@ -337,12 +354,12 @@ int zcs_shutdown() {
     if (userType == 0)
         return -1;
 
-    // mark service as DOWN in local registry
-    // if local registry is a linked list, can just remove the entry locally. other nodes will mark as down due to lack of heartbeat
-    // if service comes back, add to end of local registry and start heartbeating again. other nodes will see the service name in their registry and just mark it as up
-    removeEntryFromName(thisService->name);
-    up = false;
-    //stop HEARTBEAT
+    // apps will mark a service as down due to lack of heartbeat
+    // if service comes back, will start heartbeating again. apps will see the service name in their registry and just mark it as up
+    if (userType == ZCS_SERVICE_TYPE)
+        free(thisService);
+    up = false; //stops HEARTBEAT, if this is a service
+
     return 0;
 }
 
@@ -351,7 +368,7 @@ void zcs_log() {
 
     for (int i = 0; i < getRegistryLength(); i++) {
         registryEntry* entry = getEntryFromIndex(i);
-        printf("Node name: %s\nSatus: %s\nLast Status Change: %f seconds ago\nAttributes:\n", entry->node->name, entry->up ? "UP" : "DOWN", difftime(time(NULL), entry->timeOfServiceChange));
+        printf("Node name: %s\nSatus: %s\nLast Heartbeat: %f seconds ago\nAttributes:\n", entry->node->name, entry->up ? "UP" : "DOWN", difftime(time(NULL), entry->timeOfLastHeartbeat));
         for (int j = 0; j < entry->node->numOfAttr; j++) {
             printf("\t%s: %s\n", entry->node->attr[j].attr_name, entry->node->attr[j].value);
         }
