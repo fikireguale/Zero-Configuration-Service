@@ -7,7 +7,7 @@ typedef struct adEntry adEntry;
 struct registryEntry {
     node* node;
     bool up;
-    time_t timeOfServiceChange;
+    time_t timeOfLastHeartbeat;
     registryEntry* next;
 };
 
@@ -16,6 +16,8 @@ struct adEntry {
     zcs_cb_f cback;
     adEntry* next;
 };
+
+void setServiceTO(float time);
 
 int getRegistryLength();
 
@@ -36,3 +38,7 @@ adEntry* getAdFromService(char* serviceName);
 registryEntry* removeEntryFromIndex(int index);
 
 registryEntry* removeEntryFromName(char* name);
+
+int setStatusFromName(char* name, bool status);
+
+int setStatusFromIndex(int index, bool status);

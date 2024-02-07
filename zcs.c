@@ -18,7 +18,9 @@
 
 int userType = 0;
 bool up = false;
+
 node* thisService;
+
 char buffer[BUFFERSIZE];
 // threads
 int readPt = 0;
@@ -230,8 +232,7 @@ int zcs_init(int type) {
     if (userType == ZCS_SERVICE_TYPE) {
         mcast = multicast_init(IP, SPORT, RPORT);
         multicast_setup_recv(mcast);
-    }
-    else {
+    } else {
         mcast = multicast_init(IP, RPORT, SPORT);
         multicast_setup_recv(mcast);
     }
