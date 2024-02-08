@@ -365,23 +365,23 @@ int zcs_get_attribs(char* name, zcs_attribute_t attr[], int* num) {
     return 0;
 }
 
+// takes a service node's name and registers a callback function which will be called when the app receives an ad with the corresponding name (see ed, "app and service ad clarification")
 int zcs_listen_ad(char* name, zcs_cb_f cback) {
+    if (userType == 0) return -1; //fail if init was never called
+
+    insertAd(name, cback);
+
     return 0;
 }
 
 // shutdown app/service. stops all threads
 int zcs_shutdown() {
     //check that service was already registered and that it is currently UP. if not fail
-    if (userType == 0)
-        return -1;
-
     // apps will mark a service as down due to lack of heartbeat
     // if service comes back, will start heartbeating again. apps will see the service name in their registry and just mark it as up
-    if (userType == ZCS_SERVICE_TYPE)
-        free(thisService);
-    
-    if (userType == ZCS_APP_TYPE)
-        while (true) { sleep(5); }
+    if (userType == 0) return -1;
+    else if (userType == ZCS_SERVICE_TYPE) free(thisService);
+    else while (true) { sleep(5); }
 
     zcs_shutdown_ongoing = 1;
     up = false; //stops HEARTBEAT, if this is a service
