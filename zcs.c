@@ -381,7 +381,7 @@ int zcs_shutdown() {
         free(thisService);
     
     if (userType == ZCS_APP_TYPE)
-        while (true) {}
+        while (true) { sleep(5); }
 
     zcs_shutdown_ongoing = 1;
     up = false; //stops HEARTBEAT, if this is a service
