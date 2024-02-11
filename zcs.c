@@ -17,6 +17,7 @@
 #define HEARTBEATPAUSE 2
 
 int userType = 0;
+int consecutiveHeartbeats = 0;
 bool up = false;
 node* thisService;
 
@@ -38,13 +39,19 @@ mcast_t* mcast;
 
 // generate heartbeat message, then repeatedly send it while service is up
 void* heartbeat(void* arg) {
-    char message[1000];
-    strcat(message, "$10|");
-    strcat(message, thisService->name);
-    strcat(message, "#");
     while (up) {
+        consecutiveHeartbeats++;
+        char message[1000];
+        strcat(message, "$10|");
+        strcat(message, thisService->name);
+        strcat(message, "|");
+        char snum[5];
+        sprintf(snum, "%d", consecutiveHeartbeats);
+        strcat(message, snum);
+        strcat(message, "#");
         multicast_send(mcast, message, strlen(message));
         sleep(HEARTBEATPAUSE);
+        memset(message, '\0', strlen(message));
     }
 }
 
@@ -112,12 +119,9 @@ void processData(char* read_data) {
                 setStatusFromName(n->name, true);
             }
 
-            if (getEntryFromName(n->name) == NULL ) {//if service wasnt previously registered, register it
+            if (getEntryFromName(n->name) == NULL ) //if service wasnt previously registered, register it
                 insertEntry(n);
-                setStatusFromName(n->name, true);
-            } else {//if it was, change its status to being UP
-                setStatusFromName(n->name, true);
-            }
+            setStatusFromName(n->name, true);
             printf("NOTIFICATION from %s, Attributes: %d\n", nodeName, numOfAttr);
             // parse attributes
 
@@ -133,6 +137,9 @@ void processData(char* read_data) {
             // HEARTBEAT
             // msg = "$10|nodeName#"
             char* nodeName = strtok(msg + 3, "|"); // +3 to skip "10|"
+
+            //could also grab heartbeat count, but no current use for that number, so whats the point?
+
             printf("HEARTBEAT from %s\n", nodeName);
             setStatusFromName(nodeName, true);
             // --> heartbeat logic
@@ -332,6 +339,7 @@ int zcs_post_ad(char* ad_name, char* ad_value) {
     strcat(message, "\0");
     multicast_send(mcast, message, strlen(message));
     sleep(1);
+    memset(message, '\0', strlen(message));
     
     return 0;
 }
@@ -417,8 +425,16 @@ void zcs_log() {
         for (int j = 0; j < entry->node->numOfAttr; j++) {
             printf("\t%s: %s\n", entry->node->attr[j].attr_name, entry->node->attr[j].value);
         }
-        printf("\n");
+
+        printf("Event Log:\nTotal events: %d\n", entry->totalEvents);
+
+        serviceEvent* event = entry->startEvent;
+        for (int j = 0; j < entry->totalEvents -1; j++) {
+            printf("\tStatus: %s; at time: %s\n", event->status ? "UP" : "DOWN", asctime(localtime(&event->timestamp)));
+            event = event->next;
+        }
+        printf("\tStatus: %s; at time: %s\n", event->status ? "UP" : "DOWN", asctime(localtime(&event->timestamp)));
     }
 
-    printf("--------- LOG END ---------\n\n");
+    printf("\n--------- LOG END ---------\n\n");
 }
