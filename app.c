@@ -22,6 +22,8 @@ int main() {
             rv = zcs_listen_ad(names[0], hello);
         }
     }
+    sleep(200);
     zcs_shutdown();
 }
 
+main();
