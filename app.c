@@ -17,12 +17,11 @@ int main() {
         zcs_attribute_t attrs[5];
         int anum = 5;
         rv = zcs_get_attribs(names[0], attrs, &anum);
-        if ((strcmp(attrs[0].attr_name, "location") == 0) &&
-            (strcmp(attrs[0].value, "kitchen") == 0)) {
+        if ((strcmp(attrs[1].attr_name, "location") == 0) &&
+            (strcmp(attrs[1].value, "kitchen") == 0)) {
             rv = zcs_listen_ad(names[0], hello);
         }
     }
     zcs_shutdown();
 }
-
 

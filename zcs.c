@@ -18,7 +18,6 @@
 
 int userType = 0;
 bool up = false;
-
 node* thisService;
 
 char buffer[BUFFERSIZE];
@@ -108,11 +107,17 @@ void processData(char* read_data) {
                 n->attr[i].value = strdup(strtok(NULL, ";"));
             }
 
-            if (getEntryFromName(n->name) != NULL) //if service wasnt previously registered, register it
+            if (getRegistryLength() == 0) {
                 insertEntry(n);
-            else //if it was, change its status to being UP
                 setStatusFromName(n->name, true);
+            }
 
+            if (getEntryFromName(n->name) == NULL ) {//if service wasnt previously registered, register it
+                insertEntry(n);
+                setStatusFromName(n->name, true);
+            } else {//if it was, change its status to being UP
+                setStatusFromName(n->name, true);
+            }
             printf("NOTIFICATION from %s, Attributes: %d\n", nodeName, numOfAttr);
             // parse attributes
 
@@ -137,10 +142,14 @@ void processData(char* read_data) {
             // ADVERTISEMENT
             // msg = "$msgType|nodeName|ad_name;ad_value#"
             char* nodeName = strtok(msg + 3, "|");
-            char* ad_content = strtok(NULL, "|");
-            printf("ADVERTISEMENT from %s, Content: %s\n", nodeName, ad_content);
-            // -> execute zcs_listen_ad if headAd pointer isn't null
-
+            char* ad_name = strtok(NULL, ";");
+            char* ad_value = strtok(NULL, "#");
+            printf("ADVERTISEMENT from %s, Content: %s, %s\n", nodeName, ad_name, ad_value);
+            
+            adEntry* relevantAd = getAdFromService(nodeName);
+            if (relevantAd != NULL && relevantAd->cback != NULL) {
+                relevantAd->cback(ad_name, ad_value);
+            }   
         }
         else {
             // Process other message types
@@ -262,17 +271,9 @@ int zcs_init(int type) {
         // Send 1 DISCOVERY msg
         char* msg = "$01#";
         multicast_send(mcast, msg, strlen(msg));
-        sleep(1);
+        sleep(5); // wait for registry to fill up
     }
 
-    // Read messages using read_buffer() above
-        // + handle all msg types
-                // for app:
-                // printf("Buffer contents: %s\n", buffer);
-                // update local registry
-                // node *node_list = decode_buffer(buffer);
-                // for node in node_list
-                //  insertEntry(node* entry);
     zcs_init_is_done = 1;
     return 0;
 }
@@ -310,15 +311,28 @@ int zcs_start(char* name, zcs_attribute_t attr[], int num) {
     if (pthread_create(&heartbeat_thread, NULL, heartbeat, NULL) != 0 && pthread_detach(heartbeat_thread) != 0) {
         perror("Failed to create heartbeat thread");
         return -1;
-    }
+    } 
 
-    //send NOTIFICATION message to tell about about existence/status of this service
+    //send NOTIFICATION message to broadcast the existence/status of this service
     generateNotification();
 
     return 0;
 }
 
 int zcs_post_ad(char* ad_name, char* ad_value) {
+    // msg = "$msgType|nodeName|ad_name;ad_value#"
+    char message[1000];
+    strcat(message, "$11|");
+    strcat(message, thisService->name);
+    strcat(message, "|");
+    strcat(message, ad_name);
+    strcat(message, ";");
+    strcat(message, ad_value);
+    strcat(message, "#");
+    strcat(message, "\0");
+    multicast_send(mcast, message, strlen(message));
+    sleep(1);
+    
     return 0;
 }
 
@@ -329,8 +343,14 @@ int zcs_query(char* attr_name, char* attr_value, char* node_names[], int namelen
     // if yes, add to name array
     // return number of valid nodes found
 
-    int count = 0;
+    // make sure app's local registry is populated
+    while (1) {
+        if (zcs_init_is_done == 1) {
+            break;
+        }
+    }
 
+    int count = 0;
     for (int i = 0; i < getRegistryLength() && count < namelen; i++) {
         registryEntry* entry = getEntryFromIndex(i);
         if (!entry->up) continue; //if node is down, doesnt really make sense to consider it
@@ -370,7 +390,6 @@ int zcs_listen_ad(char* name, zcs_cb_f cback) {
     if (userType == 0) return -1; //fail if init was never called
 
     insertAd(name, cback);
-
     return 0;
 }
 
