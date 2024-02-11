@@ -22,7 +22,7 @@ void setServiceTO(float time) {
 }
 
 void checkHeartbeat(registryEntry* entry, time_t currentTime) {
-	if (difftime(time(NULL), entry->timeOfLastHeartbeat) > serviceTO) {
+	if ((difftime(time(NULL), entry->timeOfLastHeartbeat) > serviceTO) && entry->up) {
 		entry->up = false;
 		serviceEvent* nextEvent = entry->startEvent;
 		serviceEvent* newEvent = malloc(sizeof(serviceEvent));
