@@ -33,6 +33,7 @@ pthread_t listen_thread, respond_thread, heartbeat_thread;
 // linked list for specific nodes for zcs_listen_ad 
 int MAX_RETRIES = 3;
 int zcs_init_is_done = 0;
+int zcs_start_is_done = 0;
 int zcs_shutdown_ongoing = 0;
 
 mcast_t* mcast;
@@ -323,25 +324,34 @@ int zcs_start(char* name, zcs_attribute_t attr[], int num) {
     //send NOTIFICATION message to broadcast the existence/status of this service
     generateNotification();
 
+    zcs_start_is_done = 1;
     return 0;
 }
 
 int zcs_post_ad(char* ad_name, char* ad_value) {
-    // msg = "$msgType|nodeName|ad_name;ad_value#"
-    char message[1000];
-    strcat(message, "$11|");
-    strcat(message, thisService->name);
-    strcat(message, "|");
-    strcat(message, ad_name);
-    strcat(message, ";");
-    strcat(message, ad_value);
-    strcat(message, "#");
-    strcat(message, "\0");
-    multicast_send(mcast, message, strlen(message));
-    sleep(1);
-    memset(message, '\0', strlen(message));
-    
-    return 0;
+    if (!zcs_start_is_done) {
+        return 0;
+    }
+    int rv = 0;
+    int i;
+    for (i = 0; i < MAX_RETRIES; i++) {
+        // msg = "$msgType|nodeName|ad_name;ad_value#"
+        char message[1000];
+        strcat(message, "$11|");
+        strcat(message, thisService->name);
+        strcat(message, "|");
+        strcat(message, ad_name);
+        strcat(message, ";");
+        strcat(message, ad_value);
+        strcat(message, "#");
+        strcat(message, "\0");
+        rv = multicast_send(mcast, message, strlen(message));
+        sleep(1);
+        if (rv > 0) {
+            break;
+        }
+    }
+    return i; // num times ad was posted
 }
 
 // check local registry for a node which is 1) up and 2) has the desired attribute:value
@@ -353,7 +363,7 @@ int zcs_query(char* attr_name, char* attr_value, char* node_names[], int namelen
 
     // make sure app's local registry is populated
     while (1) {
-        if (zcs_init_is_done == 1) {
+        if (zcs_init_is_done) {
             break;
         }
     }
