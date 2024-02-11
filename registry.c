@@ -24,15 +24,31 @@ void setServiceTO(float time) {
 void checkHeartbeat(registryEntry* entry, time_t currentTime) {
 	if (difftime(time(NULL), entry->timeOfLastHeartbeat) > serviceTO) {
 		entry->up = false;
+		serviceEvent* nextEvent = entry->startEvent;
+		serviceEvent* newEvent = malloc(sizeof(serviceEvent));
+		newEvent->status = false;
+		newEvent->next = NULL;
+		newEvent->timestamp = entry->timeOfLastHeartbeat + (int)serviceTO;
+		
+		for (int i = 0; i < entry->totalEvents - 1; i++) 
+			nextEvent = nextEvent->next;
+
+		nextEvent->next = newEvent;
+		entry->totalEvents++;
 	}
 }
 
 void insertEntry(node* entry) {
 	registryEntry* newEntry = malloc(sizeof(registryEntry));
+	newEntry->startEvent = malloc(sizeof(serviceEvent));
+	newEntry->totalEvents = 1;
+	newEntry->startEvent->status = true;
+	newEntry->startEvent->next = NULL;
 	newEntry->next = NULL;
 	newEntry->node = entry;
 	newEntry->up = true;
 	newEntry->timeOfLastHeartbeat = time(NULL);
+	newEntry->startEvent->timestamp = newEntry->timeOfLastHeartbeat;
 
 	if (registryLength == 0) {
 		head = newEntry;
@@ -124,19 +140,6 @@ adEntry* getAdFromService(char* serviceName) {
 	return NULL;
 }
 
-int setStatusFromIndex(int index, bool status) {
-	if (registryLength == 0 || registryLength <= index || index < 0)
-		return -1;
-
-	registryEntry* entry = head;
-	for (int i = 0; i < index; i++)
-		entry = entry->next;
-
-	entry->up = status;
-	entry->timeOfLastHeartbeat = time(NULL);
-	return 0;
-}
-
 int setStatusFromName(char* name, bool status) {
 	if (registryLength == 0)
 		return -1;
@@ -144,8 +147,23 @@ int setStatusFromName(char* name, bool status) {
 	registryEntry* entry = head;
 	for (int i = 0; i < registryLength; i++) {
 		if (strcmp(name, entry->node->name) == 0) {
-			entry->up = status;
 			entry->timeOfLastHeartbeat = time(NULL);
+
+			if (entry->up != status) {
+				entry->up = status;
+				serviceEvent* nextEvent = entry->startEvent;
+				serviceEvent* newEvent = malloc(sizeof(serviceEvent));
+				newEvent->status = status;
+				newEvent->next = NULL;
+				newEvent->timestamp = entry->timeOfLastHeartbeat;
+
+				for (int i = 0; i < entry->totalEvents - 1; i++)
+					nextEvent = nextEvent->next;
+
+				nextEvent->next = newEvent;
+				entry->totalEvents++;
+			}
+
 			return 0;
 		}
 		entry = entry->next;
