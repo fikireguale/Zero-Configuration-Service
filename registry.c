@@ -22,8 +22,9 @@ void setServiceTO(float time) {
 }
 
 void checkHeartbeat(registryEntry* entry, time_t currentTime) {
-	if (difftime(currentTime, entry->timeOfLastHeartbeat) < serviceTO) 
+	if (difftime(time(NULL), entry->timeOfLastHeartbeat) > serviceTO) {
 		entry->up = false;
+	}
 }
 
 void insertEntry(node* entry) {
