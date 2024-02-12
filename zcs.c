@@ -77,6 +77,7 @@ void generateNotification() {
 
     strcat(message, "#");
     multicast_send(mcast, message, strlen(message));
+    memset(message, '\0', strlen(message));
 }
 
 // process the data received through multicast. handle the different typesof messages
@@ -153,7 +154,6 @@ void processData(char* read_data) {
             char* ad_name = strtok(NULL, ";");
             char* ad_value = strtok(NULL, "#");
             printf("ADVERTISEMENT from %s, Content: %s, %s\n", nodeName, ad_name, ad_value);
-            
             adEntry* relevantAd = getAdFromService(nodeName);
             if (relevantAd != NULL && relevantAd->cback != NULL) {
                 relevantAd->cback(ad_name, ad_value);
@@ -332,25 +332,28 @@ int zcs_post_ad(char* ad_name, char* ad_value) {
     if (!zcs_start_is_done) {
         return 0;
     }
+
+    // msg = "$msgType|nodeName|ad_name;ad_value#"
+    char message[1000];
+    strcat(message, "$11|");
+    strcat(message, thisService->name);
+    strcat(message, "|");
+    strcat(message, ad_name);
+    strcat(message, ";");
+    strcat(message, ad_value);
+    strcat(message, "#");
+    strcat(message, "\0");
+
     int rv = 0;
     int i;
     for (i = 0; i < MAX_RETRIES; i++) {
-        // msg = "$msgType|nodeName|ad_name;ad_value#"
-        char message[1000];
-        strcat(message, "$11|");
-        strcat(message, thisService->name);
-        strcat(message, "|");
-        strcat(message, ad_name);
-        strcat(message, ";");
-        strcat(message, ad_value);
-        strcat(message, "#");
-        strcat(message, "\0");
         rv = multicast_send(mcast, message, strlen(message));
         sleep(1);
         if (rv > 0) {
             break;
         }
     }
+    memset(message, '\0', strlen(message));
     return i; // num times ad was posted
 }
 

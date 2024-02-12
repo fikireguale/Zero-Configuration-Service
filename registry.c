@@ -131,7 +131,7 @@ adEntry* getAdFromService(char* serviceName) {
 		return NULL;
 
 	adEntry* entry = headAd;
-	for (int i = 0; i < registryLength; i++) {
+	for (int i = 0; i < subscriptionLength && entry != NULL; i++) {
 		if (strcmp(serviceName, entry->serviceName) == 0)
 			return entry;
 		entry = entry->next;
