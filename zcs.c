@@ -17,6 +17,7 @@
 #define HEARTBEATPAUSE 2
 
 int userType = 0;
+int consecutiveHeartbeats = 0;
 bool up = false;
 node* thisService;
 
@@ -32,19 +33,26 @@ pthread_t listen_thread, respond_thread, heartbeat_thread;
 // linked list for specific nodes for zcs_listen_ad 
 int MAX_RETRIES = 3;
 int zcs_init_is_done = 0;
+int zcs_start_is_done = 0;
 int zcs_shutdown_ongoing = 0;
 
 mcast_t* mcast;
 
 // generate heartbeat message, then repeatedly send it while service is up
 void* heartbeat(void* arg) {
-    char message[1000];
-    strcat(message, "$10|");
-    strcat(message, thisService->name);
-    strcat(message, "#");
     while (up) {
+        consecutiveHeartbeats++;
+        char message[1000];
+        strcat(message, "$10|");
+        strcat(message, thisService->name);
+        strcat(message, "|");
+        char snum[5];
+        sprintf(snum, "%d", consecutiveHeartbeats);
+        strcat(message, snum);
+        strcat(message, "#");
         multicast_send(mcast, message, strlen(message));
         sleep(HEARTBEATPAUSE);
+        memset(message, '\0', strlen(message));
     }
 }
 
@@ -69,6 +77,7 @@ void generateNotification() {
 
     strcat(message, "#");
     multicast_send(mcast, message, strlen(message));
+    memset(message, '\0', strlen(message));
 }
 
 // process the data received through multicast. handle the different typesof messages
@@ -112,12 +121,9 @@ void processData(char* read_data) {
                 setStatusFromName(n->name, true);
             }
 
-            if (getEntryFromName(n->name) == NULL ) {//if service wasnt previously registered, register it
+            if (getEntryFromName(n->name) == NULL ) //if service wasnt previously registered, register it
                 insertEntry(n);
-                setStatusFromName(n->name, true);
-            } else {//if it was, change its status to being UP
-                setStatusFromName(n->name, true);
-            }
+            setStatusFromName(n->name, true);
             printf("NOTIFICATION from %s, Attributes: %d\n", nodeName, numOfAttr);
             // parse attributes
 
@@ -133,6 +139,9 @@ void processData(char* read_data) {
             // HEARTBEAT
             // msg = "$10|nodeName#"
             char* nodeName = strtok(msg + 3, "|"); // +3 to skip "10|"
+
+            //could also grab heartbeat count, but no current use for that number, so whats the point?
+
             printf("HEARTBEAT from %s\n", nodeName);
             setStatusFromName(nodeName, true);
             // --> heartbeat logic
@@ -145,7 +154,6 @@ void processData(char* read_data) {
             char* ad_name = strtok(NULL, ";");
             char* ad_value = strtok(NULL, "#");
             printf("ADVERTISEMENT from %s, Content: %s, %s\n", nodeName, ad_name, ad_value);
-            
             adEntry* relevantAd = getAdFromService(nodeName);
             if (relevantAd != NULL && relevantAd->cback != NULL) {
                 relevantAd->cback(ad_name, ad_value);
@@ -316,10 +324,15 @@ int zcs_start(char* name, zcs_attribute_t attr[], int num) {
     //send NOTIFICATION message to broadcast the existence/status of this service
     generateNotification();
 
+    zcs_start_is_done = 1;
     return 0;
 }
 
 int zcs_post_ad(char* ad_name, char* ad_value) {
+    if (!zcs_start_is_done) {
+        return 0;
+    }
+
     // msg = "$msgType|nodeName|ad_name;ad_value#"
     char message[1000];
     strcat(message, "$11|");
@@ -330,10 +343,18 @@ int zcs_post_ad(char* ad_name, char* ad_value) {
     strcat(message, ad_value);
     strcat(message, "#");
     strcat(message, "\0");
-    multicast_send(mcast, message, strlen(message));
-    sleep(1);
-    
-    return 0;
+
+    int rv = 0;
+    int i;
+    for (i = 0; i < MAX_RETRIES; i++) {
+        rv = multicast_send(mcast, message, strlen(message));
+        sleep(1);
+        if (rv > 0) {
+            break;
+        }
+    }
+    memset(message, '\0', strlen(message));
+    return i; // num times ad was posted
 }
 
 // check local registry for a node which is 1) up and 2) has the desired attribute:value
@@ -345,7 +366,7 @@ int zcs_query(char* attr_name, char* attr_value, char* node_names[], int namelen
 
     // make sure app's local registry is populated
     while (1) {
-        if (zcs_init_is_done == 1) {
+        if (zcs_init_is_done) {
             break;
         }
     }
@@ -417,8 +438,16 @@ void zcs_log() {
         for (int j = 0; j < entry->node->numOfAttr; j++) {
             printf("\t%s: %s\n", entry->node->attr[j].attr_name, entry->node->attr[j].value);
         }
-        printf("\n");
+
+        printf("Event Log:\nTotal events: %d\n", entry->totalEvents);
+
+        serviceEvent* event = entry->startEvent;
+        for (int j = 0; j < entry->totalEvents -1; j++) {
+            printf("\tStatus: %s; at time: %s\n", event->status ? "UP" : "DOWN", asctime(localtime(&event->timestamp)));
+            event = event->next;
+        }
+        printf("\tStatus: %s; at time: %s\n", event->status ? "UP" : "DOWN", asctime(localtime(&event->timestamp)));
     }
 
-    printf("--------- LOG END ---------\n\n");
+    printf("\n--------- LOG END ---------\n\n");
 }

@@ -17,3 +17,5 @@ int main() {
     }
     rv = zcs_shutdown();
 }
+
+main();
