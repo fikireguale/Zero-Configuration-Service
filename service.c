@@ -16,6 +16,7 @@ int main() {
         sleep(10);
     }
     rv = zcs_shutdown();
+    return 0;
 }
 
-main();
+//main();

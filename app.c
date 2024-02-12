@@ -24,6 +24,5 @@ int main() {
     }
     sleep(200);
     zcs_shutdown();
+    return 0;
 }
-
-main();
