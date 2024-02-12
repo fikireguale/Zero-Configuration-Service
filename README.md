@@ -4,6 +4,7 @@ In assignment1 folder:
  2) make
  3) Open 4 terminals and run one in each: ./service ./service2 ./app ./app2
  4) After 'Test C', log for app2 looks like this:
+ Note: A service is considered down if a heartbeat isn't detected after 5 seconds.
 
 
 
