@@ -83,7 +83,6 @@ void generateNotification() {
 
 // process the data received through multicast. handle the different typesof messages
 void processData(char* read_data) {
-    printf("processing data... %s\n", read_data);
     char* start = read_data;
     char* end;
     // strchr(): returns a pointer to '$' if it is found in start ie read_data
@@ -125,7 +124,6 @@ void processData(char* read_data) {
             if (getEntryFromName(n->name) == NULL ) //if service wasnt previously registered, register it
                 insertEntry(n);
             setStatusFromName(n->name, true);
-            printf("NOTIFICATION from %s, Attributes: %d\n", nodeName, numOfAttr);
             // parse attributes
 
         }
@@ -133,7 +131,6 @@ void processData(char* read_data) {
             // DISCOVERY
             // msg = "$01#"
             // --> as a node, send a notif
-            printf("DISCOVERY message received\n");
             generateNotification();
         }
         else if (strncmp(msg, "10", 2) == 0) {
@@ -143,7 +140,6 @@ void processData(char* read_data) {
 
             //could also grab heartbeat count, but no current use for that number, so whats the point?
 
-            printf("HEARTBEAT from %s\n", nodeName);
             setStatusFromName(nodeName, true);
             // --> heartbeat logic
 
@@ -154,15 +150,15 @@ void processData(char* read_data) {
             char* nodeName = strtok(msg + 3, "|");
             char* ad_name = strtok(NULL, ";");
             char* ad_value = strtok(NULL, "#");
-            printf("ADVERTISEMENT from %s, Content: %s, %s\n", nodeName, ad_name, ad_value);
+
             adEntry* relevantAd = getAdFromService(nodeName);
             if (relevantAd != NULL && relevantAd->cback != NULL) {
                 relevantAd->cback(ad_name, ad_value);
             }   
         }
         else {
-            // Process other message types
-            printf("UNKNOWN message received\n");
+            // Process other unknown message types
+            
         }
         start = end + 1; // Go to next msg
     }
