@@ -1,11 +1,13 @@
 # Zero-Configuration-Service
+
+If you wish to use the same docker testing environment, run the RunDocker.bat in the terminal with docker desktop open (and properly set up). It will create the container, mount the directory, and install/update necessary packages in the container.
+
 In assignment1 folder:
  1) make clean
  2) make
  3) Open 4 terminals and run one in each: ./service ./service2 ./app ./app2
  4) After 'Test C', log for app2 looks like this:
  Note: A service is considered down if a heartbeat isn't detected after 5 seconds.
-
 
 
 -------- LOG START --------
