@@ -54,6 +54,7 @@ void* heartbeat(void* arg) {
         sleep(HEARTBEATPAUSE);
         memset(message, '\0', strlen(message));
     }
+    return NULL;
 }
 
 // generate and send the notification message for this service
