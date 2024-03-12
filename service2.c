@@ -23,4 +23,5 @@ int main(int argc, char *argv[]) {
     }
     sleep(200);
     rv = zcs_shutdown();
+    return 0;
 }

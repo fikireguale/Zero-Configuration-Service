@@ -29,4 +29,9 @@ int main(int argc, char *argv[]) {
     }
     sleep(200);
     zcs_shutdown();
+<<<<<<< HEAD
+=======
+
+    return 0;
+>>>>>>> 0c224f3c8f95fa8ada68e676d5deb12b7d93f8bd
 }
