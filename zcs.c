@@ -12,7 +12,6 @@
 #define BUFFERSIZE 1000
 #define RPORT 5000
 #define SPORT 6000
-#define IP "224.1.1.1"
 #define HEARTBEATTO 5.0
 #define HEARTBEATPAUSE 2
 
@@ -244,15 +243,15 @@ void* read_buffer(void* arg) {
     return NULL;
 }
 
-int zcs_init(int type) {
+int zcs_init(int type, char* ip) {
     userType = type;
     setServiceTO(HEARTBEATTO);
 
     // Start network
     if (userType == ZCS_SERVICE_TYPE) 
-        mcast = multicast_init(IP, SPORT, RPORT);
+        mcast = multicast_init(ip, SPORT, RPORT);
     else 
-        mcast = multicast_init(IP, RPORT, SPORT);
+        mcast = multicast_init(ip, RPORT, SPORT);
 
     multicast_setup_recv(mcast);
 

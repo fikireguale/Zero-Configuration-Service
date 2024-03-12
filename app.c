@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "zcs.h"
 
 void hello(char* s, char* r) {
@@ -8,9 +9,13 @@ void hello(char* s, char* r) {
     zcs_log();
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        printf("Usage: app <LAN IP ADDR> \n");
+        exit(0);
+    }
     int rv;
-    rv = zcs_init(ZCS_APP_TYPE);
+    rv = zcs_init(ZCS_APP_TYPE, argv[1]);
     char* names[10];
     rv = zcs_query("type", "speaker", names, 10);
     if (rv > 0) {
@@ -25,5 +30,3 @@ int main() {
     sleep(200);
     zcs_shutdown();
 }
-
-main();

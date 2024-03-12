@@ -1,9 +1,15 @@
 #include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include "zcs.h"
 
-int main() {
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        printf("Usage: service <LAN IP ADDR> \n");
+        exit(0);
+    }
     int rv;
-    rv = zcs_init(ZCS_SERVICE_TYPE);
+    rv = zcs_init(ZCS_SERVICE_TYPE, argv[1]);
     zcs_attribute_t attribs[] = {
         {.attr_name = "type", .value = "speaker"},
         {.attr_name = "location", .value = "kitchen"},
@@ -17,5 +23,3 @@ int main() {
     }
     rv = zcs_shutdown();
 }
-
-main();
