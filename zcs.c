@@ -241,6 +241,7 @@ void* read_buffer(void* arg) {
 }
 
 int zcs_init(int type, char* ip) {
+    printf("%s\n", ip);
     userType = type;
     setServiceTO(HEARTBEATTO);
 

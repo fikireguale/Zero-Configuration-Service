@@ -4,8 +4,8 @@
 
 #define RPORT 5000
 #define SPORT 6000
-#define IPA "224.1.10.1"
-#define IPB "224.1.20.1"
+#define IPA "224.1.1.1"
+#define IPB "224.1.2.1"
 
 pthread_t appAServiceBThread;
 pthread_t appBServiceAThread;
@@ -38,21 +38,29 @@ int main(int argc, char* argv[]) {
     args->receiver = *serviceBmcast;
     args->sender = *appAmcast;
 
-
     if (pthread_create(&appAServiceBThread, NULL, listener, args) != 0 && pthread_detach(appAServiceBThread) != 0) {
         perror("Relay failed to create a listening thread");
         return -1;
     }
+
+    args->receiver = *serviceAmcast;
+    args->sender = *appBmcast;
 
     if (pthread_create(&appBServiceAThread, NULL, listener, args) != 0 && pthread_detach(appBServiceAThread) != 0) {
         perror("Relay failed to create a listening thread");
         return -1;
     }
 
+    args->sender = *serviceBmcast;
+    args->receiver = *appAmcast;
+
     if (pthread_create(&serviceBAppAThread, NULL, listener, args) != 0 && pthread_detach(serviceBAppAThread) != 0) {
         perror("Relay failed to create a listening thread");
         return -1;
     }
+
+    args->sender = *serviceAmcast;
+    args->receiver = *appBmcast;
 
     if (pthread_create(&serviceAAppBThread, NULL, listener, args) != 0 && pthread_detach(serviceAAppBThread) != 0) {
         perror("Relay failed to create a listening thread");
