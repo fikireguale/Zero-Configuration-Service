@@ -4,7 +4,7 @@ else
 	RM = rm -rf
 endif
 
-make: service.c zcs.c app.c registry.c multicast.c relay.c
+make: zcs.c registry.c multicast.c relay.c
 	gcc service.c zcs.c registry.c multicast.c -o service
 	gcc service2.c zcs.c registry.c multicast.c -o service2
 	gcc app.c zcs.c registry.c multicast.c -o app

@@ -85,7 +85,7 @@ void processData(char* read_data) {
     char* start = read_data;
     char* end;
     // strchr(): returns a pointer to '$' if it is found in start ie read_data
-    while ((start = strchr(start, '$')) != NULL) {
+    while (start[0] == '$' || start[0] == '%') {
         end = strchr(start, '#');
         if (end == NULL) {
             break; // No end marker found, stop processing
@@ -241,7 +241,6 @@ void* read_buffer(void* arg) {
 }
 
 int zcs_init(int type, char* ip) {
-    printf("%s\n", ip);
     userType = type;
     setServiceTO(HEARTBEATTO);
 
