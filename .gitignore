@@ -56,7 +56,10 @@ Mkfile.old
 dkms.conf
 
 app
+app2
 service
+service2
+relay
 receiver_test
 sender_test
 .vscode
