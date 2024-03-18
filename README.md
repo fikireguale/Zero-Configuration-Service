@@ -1,68 +1,33 @@
 # Zero-Configuration-Service
 
-If you wish to use the same docker testing environment, run the RunDocker.bat in the terminal with docker desktop open (and properly set up). It will create the container, mount the directory, and install/update necessary packages in the container.
+If you wish to use the same docker testing environment, run the RunDocker.bat in the terminal with docker desktop open (and properly set up). 
+It will create the container, mount the directory, and install/update necessary packages in the container. It requires passing a string name for the new container as the sole argument.
 
-In assignment1 folder:
- 1) make clean
- 2) make
- 3) Open 4 terminals and run one in each: ./service ./service2 ./app ./app2
- 4) After 'Test C', log for app2 looks like this:
  Note: A service is considered down if a heartbeat isn't detected after 5 seconds.
-
-
--------- LOG START --------
-Node name: zcsLight
-Satus: UP
-Last Heartbeat: 0.000000 seconds ago
-Attributes:
-        type: light
-        location: bedroom
-        make: ikea
-Event Log:
-Total events: 3
-        Status: UP; at time: Sun Feb 11 22:28:20 2024
-
-        Status: DOWN; at time: Sun Feb 11 22:28:52 2024
-
-        Status: UP; at time: Sun Feb 11 22:28:56 2024
-
-Node name: speaker-X
-Satus: UP
-Last Heartbeat: 1.000000 seconds ago
-Attributes:
-        type: speaker
-        location: kitchen
-        make: yamaha
-Event Log:
-Total events: 3
-        Status: UP; at time: Sun Feb 11 22:28:20 2024
-
-        Status: DOWN; at time: Sun Feb 11 22:28:39 2024
-
-        Status: UP; at time: Sun Feb 11 22:28:41 2024
-
-
---------- LOG END ---------
-
 
 Active relay experiment:
 
 LAN A bedroom
 service: speaker-X
 service2: zcsLight
-app: can see service4 (zcsToaster and zcsDoorlock)
-app2: can see service2 (zcsToaster and zcsDoorlock)
+app: listens to service4 ad
+app2: listens to service2 ad
 
 LAN B kitchen
 service3: zcsDoorlock
 service4: zcsToaster
-app3: can see service1 (speaker-X and zcsLight)
-app4: can see service2 (speaker-X and zcsLight)
+app3: listens to service1 ad
+app4: listens to service2 ad
 _______________________
-Open 9 docker terminals:
+Open 9 docker terminals (ideally all from different containers).
 
-RELAY (start first)
-./relay 224.1.1.1 224.1.2.1
+In each of them, run one of each of the services/apps (and a relay) with the commands outlined below.
+
+The apps listen to specific services, and will print logs when they get posts about the desired ads, which will demonstrate how
+the relay allows communication between LANs.
+
+RELAY 
+./relay
 
 LAN A services
 ./service 224.1.1.1
@@ -82,7 +47,7 @@ LAN B apps
 
 _______
 Note: simpler experiment with 3 terminals
-./relay 224.1.1.1 224.1.2.1 
+./relay
 ./app 224.1.1.1 
 ./service4 224.1.2.1
-Expected behavior: app (LAN A) will log service4 (LAN B)
+Expected behavior: app (LAN A) will log service4 (LAN B). Note that the log only gets printed when the relay is active.

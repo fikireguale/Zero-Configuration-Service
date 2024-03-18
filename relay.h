@@ -9,4 +9,5 @@
 typedef struct {
     mcast_t receiver;
     mcast_t sender;
+    char* name;
 } mcast_pair;

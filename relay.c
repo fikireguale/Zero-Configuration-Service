@@ -1,5 +1,3 @@
-//ip A: 224.1.1.1
-//ip B: 224.1.2.1
 #include "relay.h"
 
 #define RPORT 5000
@@ -20,15 +18,14 @@ void* listener(void* arg) {
     mcast_pair* args = (mcast_pair*)arg;
     char message[1000];
     while (true) {
-        int num_bytes_received = multicast_receive(&args->receiver, message, sizeof(message));
-        if (message[0] == '%') {
-            memset(message, '\0', strlen(message));
-            continue;
-        } else
-            message[0] = '%';
-        printf("%s\n", message);
-        multicast_send(&args->sender, message, strlen(message));
         memset(message, '\0', strlen(message));
+        int num_bytes_received = multicast_receive(&args->receiver, message, sizeof(message));
+        if (message[0] == '%')
+            continue;
+        else
+            message[0] = '%';
+        //printf("%s: %s\n", args->name, message);
+        multicast_send(&args->sender, message, strlen(message));
         //sleep(10);
     }
 }
@@ -49,6 +46,7 @@ int main() {
     mcast_pair* args1 = malloc(sizeof(mcast_pair));
     args1->receiver = *serviceAmcast;
     args1->sender = *appBmcast;
+    args1->name = "From AA to SB";
 
     if (pthread_create(&appAServiceBThread, NULL, listener, args1) != 0) {
         perror("Relay failed to create a listening thread");
@@ -58,6 +56,7 @@ int main() {
     mcast_pair* args2 = malloc(sizeof(mcast_pair));
     args2->receiver = *serviceBmcast;
     args2->sender = *appAmcast;
+    args2->name = "From AB to SA";
 
     if (pthread_create(&appBServiceAThread, NULL, listener, args2) != 0) {
         perror("Relay failed to create a listening thread");
@@ -67,6 +66,7 @@ int main() {
     mcast_pair* args3 = malloc(sizeof(mcast_pair));
     args3->sender = *serviceBmcast;
     args3->receiver = *appAmcast;
+    args3->name = "From SA to AB";
 
     if (pthread_create(&serviceAAppBThread, NULL, listener, args3) != 0) {
         perror("Relay failed to create a listening thread");
@@ -76,6 +76,7 @@ int main() {
     mcast_pair* args4 = malloc(sizeof(mcast_pair));
     args4->sender = *serviceAmcast;
     args4->receiver = *appBmcast;
+    args4->name = "From SB to AA";
 
     if (pthread_create(&serviceBAppAThread, NULL, listener, args4) != 0) {
         perror("Relay failed to create a listening thread");
