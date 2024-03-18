@@ -43,3 +43,42 @@ Total events: 3
 
 
 --------- LOG END ---------
+
+
+Active relay experiment:
+
+LAN A bedroom
+service: speaker-X
+service2: zcsLight
+app: can see service4 (zcsToaster)
+app2: can see service2 (zcsDoorlock)
+
+LAN B kitchen
+service3: zcsDoorlock
+service4: zcsToaster
+app3: can see service1 (speaker-X)
+app4: can see service2 (zcsLight)
+_______________________
+Open 9 docker terminals:
+
+RELAY (start first)
+./relay 224.1.1.1 224.1.2.1
+
+LAN A
+./service 224.1.1.1
+./service2 224.1.1.1
+./app 224.1.1.1
+./app2 224.1.1.1
+
+LAN B
+./service3 224.1.2.1
+./service4 224.1.2.1
+./app3 224.1.2.1
+./app4 224.1.2.1
+
+_______
+Note: simpler experiment with 3 terminals
+./relay 224.1.1.1 224.1.2.1 
+./app 224.1.1.1 
+./service4 224.1.2.1
+Expected behavior: app (LAN A) will log service4 (LAN B)
